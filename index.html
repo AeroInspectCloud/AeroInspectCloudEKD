@@ -58,6 +58,20 @@
             color: white;
         }
 
+        .add-to-route-btn {
+            background-color: #0078ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .add-to-route-btn:hover {
+            background-color: #0056cc;
+        }
+
         /* Infobox für Routeninformationen */
         .info-box {
             position: absolute;
@@ -86,22 +100,21 @@
         /* Floating Button */
         .floating-button {
             position: absolute;
-            bottom: 20px;
+            top: 20px;
             right: 20px;
-            background-color: white;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            background-color: #0078ff;
+            border-radius: 8px;
+            color: white;
+            padding: 10px 20px;
             cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s ease-in-out;
         }
 
         .floating-button:hover {
-            transform: scale(1.1);
+            background-color: #0056cc;
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -117,13 +130,8 @@
         <p id="route-time">Zeit: 0 Minuten</p>
     </div>
 
-    <!-- Floating Button -->
-    <div class="floating-button" id="details-button">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="#003366" viewBox="0 0 24 24" width="36px" height="36px">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-            <path d="M11 17h2v-6h-2zm0-8h2V7h-2z"/>
-        </svg>
-    </div>
+    <!-- Route anzeigen Button -->
+    <div class="floating-button" id="show-route-button">Route anzeigen</div>
 
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
@@ -137,6 +145,8 @@
         });
 
         const customerData = [];
+        const selectedCustomers = [];
+        const selectedPoints = [];
 
         // 50 Testkunden zufällig generieren
         for (let i = 0; i < 50; i++) {
@@ -164,11 +174,12 @@
                 </svg>
             `;
 
-            // Popup mit Kundeninformationen
+            // Popup mit Kundeninformationen und "Zur Route hinzufügen"-Button
             const popup = new mapboxgl.Popup().setHTML(`
                 <h3>${customer.name}</h3>
                 <p>Telefon: ${customer.phone}</p>
                 <p>E-Mail: ${customer.email}</p>
+                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
             `);
 
             // Marker erstellen
@@ -176,6 +187,28 @@
                 .setLngLat(customer.coordinates)
                 .setPopup(popup)
                 .addTo(map);
+        });
+
+        // Funktion zum Hinzufügen zur Route
+        function addToRoute(customerId) {
+            const customer = customerData.find((c) => c.id === customerId);
+            if (!selectedCustomers.includes(customer)) {
+                selectedCustomers.push(customer);
+                selectedPoints.push(customer.coordinates);
+                updateRouteDetails();
+            }
+        }
+
+        // Route aktualisieren
+        function updateRouteDetails() {
+            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
+            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`; // Beispiel-Distanz
+            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10} Minuten`; // Beispiel-Zeit
+        }
+
+        // Route anzeigen Button
+        document.getElementById('show-route-button').addEventListener('click', () => {
+            alert(`Route mit ${selectedCustomers.length} Kunden:\n${selectedCustomers.map((c) => c.name).join(', ')}`);
         });
     </script>
 </body>
