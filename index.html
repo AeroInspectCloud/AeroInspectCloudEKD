@@ -29,44 +29,13 @@
             align-items: center;
             width: 40px;
             height: 40px;
-        }
-
-        .custom-marker svg {
-            width: 36px;
-            height: 36px;
-        }
-
-        .mapboxgl-popup {
-            background-color: rgba(0, 0, 0, 0.8) !important;
-            border-radius: 8px !important;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
-            color: white !important;
-            font-family: 'Roboto', sans-serif;
-        }
-
-        .mapboxgl-popup-content {
-            background-color: rgba(0, 0, 0, 0.8);
-            padding: 10px !important;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .add-to-route-btn {
-            background-color: #333333;
+            background-color: black;
+            border-radius: 50%;
             color: white;
-            border: 2px solid white;
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 14px;
+            text-align: center;
             font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-        }
-
-        .add-to-route-btn:hover {
-            background-color: white;
-            color: black;
+            font-size: 14px;
+            line-height: 40px;
         }
 
         .info-box {
@@ -98,9 +67,9 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background-color: #333333;
-            border-radius: 8px;
+            background-color: black;
             color: white;
+            border-radius: 8px;
             padding: 10px 20px;
             font-size: 14px;
             font-weight: bold;
@@ -148,20 +117,10 @@
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        .route-details-popup input {
-            width: calc(100% - 20px);
-            padding: 10px;
-            border: none;
-            background-color: rgba(255, 255, 255, 0.1);
-            color: white;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-
         .route-details-popup button {
             width: 100%;
             padding: 10px;
-            background-color: #333333;
+            background-color: black;
             color: white;
             border: none;
             border-radius: 5px;
@@ -200,8 +159,7 @@
             </thead>
             <tbody id="route-table-body"></tbody>
         </table>
-        <div id="geocoder"></div>
-        <button id="update-route">Route aktualisieren</button>
+        <button id="close-popup">Schließen</button>
     </div>
 
     <script>
@@ -214,36 +172,103 @@
             zoom: 5,
         });
 
+        const customerData = [];
         const selectedCustomers = [];
         const selectedPoints = [];
 
-        const customerData = Array.from({ length: 50 }, (_, i) => ({
-            id: i + 1,
-            name: `Kunde ${i + 1}`,
-            coordinates: [
-                10 + Math.random() * 5 - 2.5,
-                50 + Math.random() * 5 - 2.5,
-            ],
-        }));
+        // 50 Testkunden erstellen
+        for (let i = 0; i < 50; i++) {
+            customerData.push({
+                id: i + 1,
+                name: `Kunde ${i + 1}`,
+                coordinates: [
+                    10 + Math.random() * 5 - 2.5,
+                    50 + Math.random() * 5 - 2.5,
+                ],
+            });
+        }
 
+        // Marker hinzufügen
         customerData.forEach((customer) => {
-            const marker = new mapboxgl.Marker()
+            const markerElement = document.createElement('div');
+            markerElement.className = 'custom-marker';
+            markerElement.textContent = customer.id;
+
+            const popup = new mapboxgl.Popup().setHTML(`
+                <h3>${customer.name}</h3>
+                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
+            `);
+
+            new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
-                .setPopup(new mapboxgl.Popup().setHTML(`
-                    <h3>${customer.name}</h3>
-                    <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
-                `))
+                .setPopup(popup)
                 .addTo(map);
         });
 
         window.addToRoute = function (customerId) {
-            const customer = customerData.find(c => c.id === customerId);
+            const customer = customerData.find((c) => c.id === customerId);
             if (!selectedCustomers.includes(customer)) {
                 selectedCustomers.push(customer);
                 selectedPoints.push(customer.coordinates);
-                console.log("Route aktualisiert", selectedPoints);
+                updateRouteDetails();
+                drawRoute();
             }
         };
+
+        function updateRouteDetails() {
+            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
+            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10} Minuten`;
+        }
+
+        function drawRoute() {
+            if (selectedPoints.length < 2) return;
+
+            const coordinates = selectedPoints.map((point) => point.join(',')).join(';');
+            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+
+            fetch(query)
+                .then((response) => response.json())
+                .then((data) => {
+                    const routeGeoJSON = {
+                        type: 'Feature',
+                        geometry: data.trips[0].geometry,
+                    };
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(routeGeoJSON);
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': 'black', 'line-width': 4 },
+                        });
+                    }
+                });
+        }
+
+        document.getElementById('show-route-button').addEventListener('click', () => {
+            const popup = document.getElementById('route-popup');
+            const tableBody = document.getElementById('route-table-body');
+            tableBody.innerHTML = selectedCustomers
+                .map(
+                    (customer, index) => `
+                <tr>
+                    <td>${index + 1}. ${customer.name}</td>
+                    <td>${customer.coordinates.join(', ')}</td>
+                </tr>
+            `
+                )
+                .join('');
+            popup.style.display = 'block';
+        });
+
+        document.getElementById('close-popup').addEventListener('click', () => {
+            document.getElementById('route-popup').style.display = 'none';
+        });
     </script>
 </body>
 </html>
