@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Optimierte Route mit Zeitplanung</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Maps-ähnliche App</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,74 +14,74 @@
             bottom: 0;
             width: 100%;
         }
-        .popup-table {
-            display: none;
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translate(-50%, -20%);
-            width: 50%;
+        .floating-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
             background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            z-index: 10000;
-            padding: 20px;
-        }
-        .popup-table button:hover {
-            background-color: #0056cc;
-        }
-        .close-popup {
-            float: right;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+        .floating-button:hover {
+            transform: scale(1.1);
+        }
+        .info-box {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            max-width: 300px;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        .info-box h3 {
+            margin: 0 0 10px;
             font-size: 18px;
             font-weight: bold;
+        }
+        .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
+    <!-- Karte -->
     <div id="map"></div>
-    <div class="fixed bottom-5 right-5 bg-gray-900 text-white rounded-lg shadow-lg p-4 space-y-2 z-50">
-        <h3 class="text-lg font-bold">Route-Informationen</h3>
-        <p id="route-customers" class="text-sm">Kunden: 0</p>
-        <p id="route-distance" class="text-sm">Distanz: 0 km</p>
-        <p id="route-time" class="text-sm">Zeit: 0 Minuten</p>
-        <button id="show-route-details" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">
-            Details anzeigen
-        </button>
+
+    <!-- Info-Box -->
+    <div class="info-box">
+        <h3>Route-Details</h3>
+        <p id="route-customers">Kunden: 0</p>
+        <p id="route-distance">Distanz: 0 km</p>
+        <p id="route-time">Zeit: 0 Minuten</p>
     </div>
-    <div class="popup-table" id="popup-table">
-        <span class="close-popup" id="close-popup">&times;</span>
-        <h2 class="text-xl font-bold text-center mb-4">Routenübersicht</h2>
-        <table class="w-full border-collapse border border-gray-300">
-            <thead>
-                <tr class="bg-gray-200">
-                    <th class="p-2 border border-gray-300">Kunde</th>
-                    <th class="p-2 border border-gray-300">Adresse</th>
-                    <th class="p-2 border border-gray-300">Ankunftszeit</th>
-                </tr>
-            </thead>
-            <tbody id="route-table-body"></tbody>
-        </table>
-        <div class="flex space-x-4 mt-4">
-            <label class="flex flex-col">
-                <span>Startdatum:</span>
-                <input type="date" id="start-date" class="border border-gray-300 rounded p-2">
-            </label>
-            <label class="flex flex-col">
-                <span>Startzeit:</span>
-                <input type="time" id="start-time" class="border border-gray-300 rounded p-2">
-            </label>
-        </div>
-        <button id="calculate-arrival-times" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded mt-4">
-            Ankunftszeiten berechnen
-        </button>
+
+    <!-- Floating Button -->
+    <div class="floating-button" id="details-button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="#4285F4" viewBox="0 0 24 24" width="36px" height="36px">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+            <path d="M11 17h2v-6h-2zm0-8h2V7h-2z"/>
+        </svg>
     </div>
+
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
+        // Initialisierung der Karte
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11',
+            style: 'mapbox://styles/mapbox/light-v10', // Google Maps-ähnlicher Stil
             center: [10.0, 50.0],
             zoom: 5,
         });
@@ -107,12 +107,19 @@
         // Marker hinzufügen
         customerData.forEach((customer) => {
             const popupHtml = `
-                <h3>${customer.name}</h3>
+                <h3 class="font-bold">${customer.name}</h3>
                 <p>Telefon: ${customer.phone}</p>
                 <p>E-Mail: ${customer.email}</p>
             `;
 
-            const marker = new mapboxgl.Marker()
+            const markerElement = document.createElement('div');
+            markerElement.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="#4285F4" viewBox="0 0 24 24" width="36px" height="36px">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                </svg>
+            `;
+
+            const marker = new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
                 .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
                 .addTo(map);
@@ -164,7 +171,7 @@
                             type: 'line',
                             source: 'route',
                             layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': '#0078ff', 'line-width': 4 },
+                            paint: { 'line-color': '#4285F4', 'line-width': 4 },
                         });
                     }
 
@@ -181,31 +188,9 @@
             document.getElementById('route-time').innerText = `Zeit: ${time} Minuten`;
         }
 
-        const popupTable = document.getElementById('popup-table');
-        document.getElementById('show-route-details').addEventListener('click', () => {
-            const tbody = document.getElementById('route-table-body');
-            tbody.innerHTML = '';
-
-            selectedPoints.forEach((point, index) => {
-                const customer = customerData.find(
-                    (c) =>
-                        c.coordinates[0] === point[0] && c.coordinates[1] === point[1]
-                );
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${customer.name}</td>
-                    <td>${customer.coordinates.join(', ')}</td>
-                    <td>-</td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            popupTable.style.display = 'block';
-        });
-
-        document.getElementById('close-popup').addEventListener('click', () => {
-            popupTable.style.display = 'none';
+        // Details-Schaltfläche
+        document.getElementById('details-button').addEventListener('click', () => {
+            alert('Weitere Details kommen bald!');
         });
     </script>
 </body>
