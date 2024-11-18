@@ -12,7 +12,7 @@
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4; /* Hintergrundfarbe */
+            background-color: #f4f4f4;
         }
 
         /* Kartencontainer */
@@ -50,6 +50,7 @@
             background-color: rgba(0, 0, 0, 0.8);
             padding: 10px !important;
             border-radius: 8px;
+            text-align: center;
         }
 
         .mapboxgl-popup-content h3,
@@ -59,17 +60,19 @@
         }
 
         .add-to-route-btn {
-            background-color: #0078ff;
+            background-color: transparent;
             color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
+            border: 2px solid white;
+            border-radius: 8px;
+            padding: 8px 12px;
             font-size: 14px;
             cursor: pointer;
+            transition: all 0.3s ease-in-out;
         }
 
         .add-to-route-btn:hover {
-            background-color: #0056cc;
+            background-color: white;
+            color: black;
         }
 
         /* Infobox für Routeninformationen */
@@ -77,7 +80,7 @@
             position: absolute;
             bottom: 20px;
             left: 20px;
-            background-color: rgba(0, 0, 0, 0.8); /* Schwarzer, transparenter Hintergrund */
+            background-color: rgba(0, 0, 0, 0.8);
             color: white;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
@@ -102,7 +105,7 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background-color: #0078ff;
+            background-color: black;
             border-radius: 8px;
             color: white;
             padding: 10px 20px;
@@ -113,8 +116,72 @@
         }
 
         .floating-button:hover {
-            background-color: #0056cc;
             transform: scale(1.05);
+        }
+
+        /* Route-Details Popup */
+        .route-details-popup {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -20%);
+            width: 400px;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .route-details-popup h3 {
+            margin: 0 0 15px;
+            text-align: center;
+        }
+
+        .route-details-popup table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        .route-details-popup th,
+        .route-details-popup td {
+            text-align: left;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .route-details-popup input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .route-details-popup input[type="time"] {
+            text-align: center;
+        }
+
+        .route-details-popup button {
+            width: 100%;
+            padding: 10px;
+            background-color: white;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .route-details-popup button:hover {
+            background-color: black;
+            color: white;
         }
     </style>
 </head>
@@ -133,13 +200,29 @@
     <!-- Route anzeigen Button -->
     <div class="floating-button" id="show-route-button">Route anzeigen</div>
 
+    <!-- Route Details Popup -->
+    <div class="route-details-popup" id="route-popup">
+        <h3>Route-Details</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Kunde</th>
+                    <th>Ort</th>
+                </tr>
+            </thead>
+            <tbody id="route-table-body"></tbody>
+        </table>
+        <input type="text" id="start-location" placeholder="Startpunkt eingeben">
+        <input type="time" id="start-time" value="08:00">
+        <button id="update-route">Route aktualisieren</button>
+    </div>
+
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
-        // Initialisierung der Karte
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/light-v10', // Minimalistischer Stil
+            style: 'mapbox://styles/mapbox/light-v10',
             center: [10.0, 50.0],
             zoom: 5,
         });
@@ -148,7 +231,6 @@
         const selectedCustomers = [];
         const selectedPoints = [];
 
-        // 50 Testkunden zufällig generieren
         for (let i = 0; i < 50; i++) {
             customerData.push({
                 id: i + 1,
@@ -162,19 +244,16 @@
             });
         }
 
-        // Dynamische benutzerdefinierte Marker hinzufügen
         customerData.forEach((customer) => {
             const markerElement = document.createElement('div');
             markerElement.className = 'custom-marker';
 
-            // SVG für Marker
             markerElement.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#003366">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
                 </svg>
             `;
 
-            // Popup mit Kundeninformationen und "Zur Route hinzufügen"-Button
             const popup = new mapboxgl.Popup().setHTML(`
                 <h3>${customer.name}</h3>
                 <p>Telefon: ${customer.phone}</p>
@@ -182,14 +261,12 @@
                 <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
             `);
 
-            // Marker erstellen
             new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
                 .setPopup(popup)
                 .addTo(map);
         });
 
-        // Funktion zum Hinzufügen zur Route
         function addToRoute(customerId) {
             const customer = customerData.find((c) => c.id === customerId);
             if (!selectedCustomers.includes(customer)) {
@@ -199,16 +276,28 @@
             }
         }
 
-        // Route aktualisieren
         function updateRouteDetails() {
             document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
-            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`; // Beispiel-Distanz
-            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10} Minuten`; // Beispiel-Zeit
+            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10} Minuten`;
         }
 
-        // Route anzeigen Button
         document.getElementById('show-route-button').addEventListener('click', () => {
-            alert(`Route mit ${selectedCustomers.length} Kunden:\n${selectedCustomers.map((c) => c.name).join(', ')}`);
+            const routePopup = document.getElementById('route-popup');
+            const routeTableBody = document.getElementById('route-table-body');
+
+            routeTableBody.innerHTML = selectedCustomers
+                .map((customer) => `<tr><td>${customer.name}</td><td>${customer.coordinates.join(', ')}</td></tr>`)
+                .join('');
+
+            routePopup.style.display = 'block';
+        });
+
+        document.getElementById('update-route').addEventListener('click', () => {
+            const startLocation = document.getElementById('start-location').value;
+            const startTime = document.getElementById('start-time').value;
+
+            alert(`Route beginnt in ${startLocation} um ${startTime}.`);
         });
     </script>
 </body>
