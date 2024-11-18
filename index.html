@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AERO INSPECT - Map</title>
+    <title>AERO INSPECT - MAP</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Allgemeines Styling */
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
             background-color: #f4f4f4;
         }
 
-        /* Kartencontainer */
         #map {
             position: absolute;
             top: 0;
@@ -25,7 +23,6 @@
             width: 100%;
         }
 
-        /* Benutzerdefinierte Marker */
         .custom-marker {
             display: flex;
             justify-content: center;
@@ -39,7 +36,6 @@
             height: 36px;
         }
 
-        /* Popup-Styling */
         .mapboxgl-popup {
             background-color: rgba(0, 0, 0, 0.8) !important;
             border-radius: 8px !important;
@@ -79,7 +75,6 @@
             color: black;
         }
 
-        /* Infobox für Routeninformationen */
         .info-box {
             position: absolute;
             bottom: 20px;
@@ -97,6 +92,7 @@
             margin: 0 0 10px;
             font-size: 18px;
             font-weight: bold;
+            text-transform: uppercase;
         }
 
         .info-box p {
@@ -104,7 +100,6 @@
             font-size: 14px;
         }
 
-        /* Floating Button */
         .floating-button {
             position: absolute;
             top: 20px;
@@ -125,7 +120,6 @@
             transform: scale(1.05);
         }
 
-        /* Route-Details Popup */
         .route-details-popup {
             display: none;
             position: fixed;
@@ -144,6 +138,7 @@
         .route-details-popup h3 {
             margin: 0 0 15px;
             text-align: center;
+            text-transform: uppercase;
         }
 
         .route-details-popup table {
@@ -193,23 +188,19 @@
     </style>
 </head>
 <body>
-    <!-- Karte -->
     <div id="map"></div>
 
-    <!-- Info-Box -->
     <div class="info-box">
-        <h3>Route-Details</h3>
+        <h3>Routen-Details</h3>
         <p id="route-customers">Kunden: 0</p>
         <p id="route-distance">Distanz: 0 km</p>
         <p id="route-time">Zeit: 0 Minuten</p>
     </div>
 
-    <!-- Route anzeigen Button -->
     <div class="floating-button" id="show-route-button">Route anzeigen</div>
 
-    <!-- Route Details Popup -->
     <div class="route-details-popup" id="route-popup">
-        <h3>Route-Details</h3>
+        <h3>ROUTEN-DETAILS</h3>
         <table>
             <thead>
                 <tr>
@@ -245,7 +236,7 @@
 
         document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
 
-        geocoder.on('result', (e) => {
+        geocoder.on('result', () => {
             optimizeRoute();
         });
 
@@ -326,11 +317,10 @@
                 });
         }
 
-        document.get        document.getElementById('show-route-button').addEventListener('click', () => {
+        document.getElementById('show-route-button').addEventListener('click', () => {
             const routePopup = document.getElementById('route-popup');
             const routeTableBody = document.getElementById('route-table-body');
 
-            // Füllt die Route-Tabelle mit den ausgewählten Kunden
             routeTableBody.innerHTML = selectedCustomers
                 .map((customer, index) => `
                     <tr>
@@ -353,7 +343,6 @@
                 return;
             }
 
-            // Fügt den Startpunkt zur Route hinzu, wenn er noch nicht existiert
             if (!selectedPoints.some((point) => point[0] === startLocation[0] && point[1] === startLocation[1])) {
                 selectedPoints.unshift(startLocation);
             }
@@ -362,7 +351,6 @@
             optimizeRoute();
         });
 
-        // Popup schließen (optional)
         document.addEventListener('click', (event) => {
             const routePopup = document.getElementById('route-popup');
             if (!routePopup.contains(event.target) && event.target.id !== 'show-route-button') {
