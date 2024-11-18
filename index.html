@@ -2,15 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AERO INSPECT - MAP</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Mapbox CSS und JS -->
+    <title>AERO INSPECT - MAP</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0.mapbox-gl.css" rel="stylesheet">
-    <!-- Mapbox Geocoder CSS und JS -->
     <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -135,17 +132,6 @@
         .route-details-popup #geocoder-container {
             margin-bottom: 15px;
         }
-
-        /* Zusätzliche CSS-Regeln, um das weiße Fenster mit X-Schließen zu entfernen */
-        .mapboxgl-popup {
-            background: none !important;
-            box-shadow: none !important;
-            border: none !important;
-        }
-
-        .mapboxgl-popup-close-button {
-            display: none !important;
-        }
     </style>
 </head>
 <body>
@@ -196,7 +182,7 @@
                 id: i + 1,
                 name: `Kunde ${i + 1}`,
                 coordinates: [10 + Math.random() * 5 - 2.5, 50 + Math.random() * 5 - 2.5],
-                visitDuration: 10,
+                visitDuration: 10, // Standardmäßig 10 Minuten
             });
         }
 
@@ -223,11 +209,6 @@
                                transition: all 0.3s ease-in-out;">
                     Zur Route hinzufügen
                 </button>
-                <button onclick="closePopup()" 
-                        style="width: 100%; padding: 10px; background-color: red; color: white; 
-                               border-radius: 5px; text-transform: uppercase; margin-top: 10px; cursor: pointer;">
-                    Schließen
-                </button>
             `;
             popup.setDOMContent(popupContent);
 
@@ -237,24 +218,29 @@
                 .addTo(map);
         });
 
-        function updateVisitDuration(customerId, duration) {
+        window.updateVisitDuration = function (customerId, duration) {
             const customer = customerData.find((c) => c.id === customerId);
             if (customer) {
                 customer.visitDuration = parseInt(duration, 10) || 0;
                 updateRouteDetails();
             }
-        }
+        };
 
-        function addToRoute(customerId) {
+        window.addToRoute = function (customerId) {
             const customer = customerData.find((c) => c.id === customerId);
             if (!selectedCustomers.includes(customer)) {
                 selectedCustomers.push(customer);
                 selectedPoints.push(customer.coordinates);
                 updateRouteDetails();
                 drawRoute();
-                closePopup();
+
+                // Popup automatisch schließen
+                const activePopup = document.querySelector('.mapboxgl-popup');
+                if (activePopup) {
+                    activePopup.remove();
+                }
             }
-        }
+        };
 
         function updateRouteDetails() {
             const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
@@ -291,11 +277,6 @@
                         });
                     }
                 });
-        }
-
-        function closePopup() {
-            const activePopup = document.querySelector('.mapboxgl-popup');
-            if (activePopup) activePopup.remove();
         }
 
         document.getElementById('show-route-button').addEventListener('click', () => {
