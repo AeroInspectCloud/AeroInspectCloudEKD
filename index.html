@@ -32,49 +32,50 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
 
-        .info-box {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background-color: rgba(0, 0, 0, 0.8);
+        .popup-content {
+            background-color: rgba(0, 0, 0, 0.9);
             color: white;
             border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
             padding: 15px;
-            max-width: 300px;
-            line-height: 1.6;
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
         }
 
-        .info-box h3 {
+        .popup-content h3 {
             margin: 0 0 10px;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             text-transform: uppercase;
         }
 
-        .info-box p {
+        .popup-content input {
+            width: 100%;
+            padding: 5px;
             margin: 5px 0;
-            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            background-color: #333;
+            color: white;
+            text-align: center;
         }
 
-        .floating-button {
-            position: absolute;
-            top: 20px;
-            right: 20px;
+        .popup-content button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
             background-color: black;
             color: white;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-size: 14px;
+            border: none;
+            border-radius: 5px;
             font-weight: bold;
             text-transform: uppercase;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s ease-in-out;
         }
 
-        .floating-button:hover {
-            transform: scale(1.05);
+        .popup-content button:hover {
+            background-color: white;
+            color: black;
         }
 
         .route-details-popup {
@@ -110,39 +111,10 @@
             padding: 10px;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
-
-        .route-details-popup button {
-            width: 100%;
-            padding: 10px;
-            background-color: black;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-        }
-
-        .route-details-popup button:hover {
-            background-color: white;
-            color: black;
-        }
-
-        .route-details-popup #geocoder-container {
-            margin-bottom: 15px;
-        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-
-    <div class="info-box">
-        <h3>Routen-Details</h3>
-        <p id="route-customers">Kunden: 0</p>
-        <p id="route-distance">Distanz: 0 km</p>
-        <p id="route-time">Zeit: 0 Minuten</p>
-    </div>
 
     <div class="floating-button" id="show-route-button">Route anzeigen</div>
 
@@ -182,7 +154,7 @@
                 id: i + 1,
                 name: `Kunde ${i + 1}`,
                 coordinates: [10 + Math.random() * 5 - 2.5, 50 + Math.random() * 5 - 2.5],
-                visitDuration: 0,
+                visitDuration: 10, // Standardaufenthaltsdauer
             });
         }
 
@@ -190,13 +162,16 @@
             const markerElement = document.createElement('div');
             markerElement.className = 'custom-marker';
 
-            const popup = new mapboxgl.Popup().setHTML(`
-                <h3>${customer.name}</h3>
-                <label for="visit-duration-${customer.id}">Aufenthaltsdauer (Minuten):</label>
-                <input type="number" id="visit-duration-${customer.id}" min="0" value="0" 
-                onchange="updateVisitDuration(${customer.id}, this.value)">
-                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
-            `);
+            const popupContent = `
+                <div class="popup-content">
+                    <h3>${customer.name}</h3>
+                    <p>Standardaufenthalt: ${customer.visitDuration} Minuten</p>
+                    <button onclick="updateVisitDuration(${customer.id})">Ändern</button>
+                    <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
+                </div>
+            `;
+
+            const popup = new mapboxgl.Popup().setHTML(popupContent);
 
             new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
@@ -204,11 +179,12 @@
                 .addTo(map);
         });
 
-        window.updateVisitDuration = function (customerId, duration) {
+        window.updateVisitDuration = function (customerId) {
+            const duration = prompt('Geben Sie die neue Aufenthaltsdauer in Minuten ein:', '10');
             const customer = customerData.find((c) => c.id === customerId);
-            if (customer) {
-                customer.visitDuration = parseInt(duration, 10) || 0;
-                updateRouteDetails();
+            if (customer && duration) {
+                customer.visitDuration = parseInt(duration, 10) || 10;
+                alert(`Die Aufenthaltsdauer für ${customer.name} wurde auf ${customer.visitDuration} Minuten gesetzt.`);
             }
         };
 
@@ -219,79 +195,21 @@
                 selectedPoints.push(customer.coordinates);
                 updateRouteDetails();
                 drawRoute();
+                document.querySelector('.mapboxgl-popup').remove(); // Popup automatisch schließen
             }
         };
 
         function updateRouteDetails() {
             const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
-            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
-            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
-            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10 + totalVisitTime} Minuten`;
+            console.log('Routen-Details aktualisieren');
         }
 
         function drawRoute() {
-            const allPoints = startPoint ? [startPoint, ...selectedPoints] : selectedPoints;
-            if (allPoints.length < 2) return;
-
-            const coordinates = allPoints.map((point) => point.join(',')).join(';');
+            if (selectedPoints.length < 2) return;
+            const coordinates = selectedPoints.map((point) => point.join(',')).join(';');
             const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-
-            fetch(query)
-                .then((response) => response.json())
-                .then((data) => {
-                    const routeGeoJSON = {
-                        type: 'Feature',
-                        geometry: data.trips[0].geometry,
-                    };
-
-                    if (map.getSource('route')) {
-                        map.getSource('route').setData(routeGeoJSON);
-                    } else {
-                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
-                        map.addLayer({
-                            id: 'route',
-                            type: 'line',
-                            source: 'route',
-                            layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': 'black', 'line-width': 4 },
-                        });
-                    }
-                });
+            fetch(query).then((response) => response.json());
         }
-
-        document.getElementById('show-route-button').addEventListener('click', () => {
-            const popup = document.getElementById('route-popup');
-            const tableBody = document.getElementById('route-table-body');
-            tableBody.innerHTML = selectedCustomers
-                .map(
-                    (customer, index) => `
-                <tr>
-                    <td>${index + 1}. ${customer.name}</td>
-                    <td>${customer.coordinates.join(', ')}</td>
-                    <td>${customer.visitDuration} Minuten</td>
-                </tr>
-            `
-                )
-                .join('');
-            popup.style.display = 'block';
-        });
-
-        document.getElementById('close-popup').addEventListener('click', () => {
-            document.getElementById('route-popup').style.display = 'none';
-        });
-
-        const geocoder = new MapboxGeocoder({
-            accessToken: mapboxgl.accessToken,
-            mapboxgl: mapboxgl,
-            placeholder: 'Abfahrtsstandort eingeben...',
-        });
-
-        geocoder.on('result', (e) => {
-            startPoint = e.result.geometry.coordinates;
-            drawRoute();
-        });
-
-        document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
     </script>
 </body>
 </html>
