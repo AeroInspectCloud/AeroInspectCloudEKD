@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AERO INSPECT - Map</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
         /* Allgemeines Styling */
@@ -60,12 +62,14 @@
         }
 
         .add-to-route-btn {
-            background-color: transparent;
+            background-color: #333333;
             color: white;
             border: 2px solid white;
             border-radius: 8px;
             padding: 8px 12px;
             font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
             cursor: pointer;
             transition: all 0.3s ease-in-out;
         }
@@ -105,12 +109,14 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background-color: black;
+            background-color: #333333;
             border-radius: 8px;
             color: white;
             padding: 10px 20px;
-            cursor: pointer;
             font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
             transition: transform 0.2s ease-in-out;
         }
@@ -170,18 +176,19 @@
         .route-details-popup button {
             width: 100%;
             padding: 10px;
-            background-color: white;
-            color: black;
+            background-color: #333333;
+            color: white;
             border: none;
             border-radius: 5px;
             font-weight: bold;
+            text-transform: uppercase;
             cursor: pointer;
             transition: all 0.3s ease-in-out;
         }
 
         .route-details-popup button:hover {
-            background-color: black;
-            color: white;
+            background-color: white;
+            color: black;
         }
     </style>
 </head>
@@ -212,7 +219,7 @@
             </thead>
             <tbody id="route-table-body"></tbody>
         </table>
-        <input type="text" id="start-location" placeholder="Startpunkt eingeben">
+        <div id="geocoder"></div>
         <input type="time" id="start-time" value="08:00">
         <button id="update-route">Route aktualisieren</button>
     </div>
@@ -230,6 +237,17 @@
         const customerData = [];
         const selectedCustomers = [];
         const selectedPoints = [];
+        const geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: "Startpunkt eingeben...",
+        });
+
+        document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
+
+        geocoder.on('result', (e) => {
+            optimizeRoute();
+        });
 
         for (let i = 0; i < 50; i++) {
             customerData.push({
@@ -249,7 +267,7 @@
             markerElement.className = 'custom-marker';
 
             markerElement.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
                 </svg>
             `;
@@ -272,32 +290,84 @@
             if (!selectedCustomers.includes(customer)) {
                 selectedCustomers.push(customer);
                 selectedPoints.push(customer.coordinates);
-                updateRouteDetails();
+                optimizeRoute();
             }
         }
 
-        function updateRouteDetails() {
-            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
-            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
-            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10} Minuten`;
+        function optimizeRoute() {
+            const coordinates = selectedPoints.map((point) => point.join(',')).join(';');
+            if (coordinates.length < 1) return;
+
+            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+            fetch(query)
+                .then((response) => response.json())
+                .then((data) => {
+                    const route = data.trips[0];
+                    const routeGeoJSON = {
+                        type: 'Feature',
+                        geometry: route.geometry,
+                    };
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(routeGeoJSON);
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': 'black', 'line-width': 4 },
+                        });
+                    }
+
+                    document.getElementById('route-distance').innerText = `Distanz: ${(route.distance / 1000).toFixed(1)} km`;
+                    document.getElementById('route-time').innerText = `Zeit: ${Math.round(route.duration / 60)} Minuten`;
+                });
         }
 
-        document.getElementById('show-route-button').addEventListener('click', () => {
+        document.get        document.getElementById('show-route-button').addEventListener('click', () => {
             const routePopup = document.getElementById('route-popup');
             const routeTableBody = document.getElementById('route-table-body');
 
+            // Füllt die Route-Tabelle mit den ausgewählten Kunden
             routeTableBody.innerHTML = selectedCustomers
-                .map((customer) => `<tr><td>${customer.name}</td><td>${customer.coordinates.join(', ')}</td></tr>`)
+                .map((customer, index) => `
+                    <tr>
+                        <td>${index + 1}. ${customer.name}</td>
+                        <td>${customer.coordinates.join(', ')}</td>
+                    </tr>
+                `)
                 .join('');
 
             routePopup.style.display = 'block';
         });
 
         document.getElementById('update-route').addEventListener('click', () => {
-            const startLocation = document.getElementById('start-location').value;
             const startTime = document.getElementById('start-time').value;
+            const geocoderInput = geocoder.lastSelected;
+            let startLocation = geocoderInput ? geocoderInput.geometry.coordinates : null;
 
-            alert(`Route beginnt in ${startLocation} um ${startTime}.`);
+            if (!startLocation) {
+                alert('Bitte geben Sie eine Startadresse ein.');
+                return;
+            }
+
+            // Fügt den Startpunkt zur Route hinzu, wenn er noch nicht existiert
+            if (!selectedPoints.some((point) => point[0] === startLocation[0] && point[1] === startLocation[1])) {
+                selectedPoints.unshift(startLocation);
+            }
+
+            alert(`Die Route startet um ${startTime}.`);
+            optimizeRoute();
+        });
+
+        // Popup schließen (optional)
+        document.addEventListener('click', (event) => {
+            const routePopup = document.getElementById('route-popup');
+            if (!routePopup.contains(event.target) && event.target.id !== 'show-route-button') {
+                routePopup.style.display = 'none';
+            }
         });
     </script>
 </body>
