@@ -51,12 +51,6 @@
             text-align: center;
         }
 
-        .mapboxgl-popup-content h3,
-        .mapboxgl-popup-content p {
-            margin: 0 0 5px;
-            color: white;
-        }
-
         .add-to-route-btn {
             background-color: #333333;
             color: white;
@@ -164,10 +158,6 @@
             margin-bottom: 10px;
         }
 
-        .route-details-popup input[type="time"] {
-            text-align: center;
-        }
-
         .route-details-popup button {
             width: 100%;
             padding: 10px;
@@ -211,7 +201,6 @@
             <tbody id="route-table-body"></tbody>
         </table>
         <div id="geocoder"></div>
-        <input type="time" id="start-time" value="08:00">
         <button id="update-route">Route aktualisieren</button>
     </div>
 
@@ -225,138 +214,36 @@
             zoom: 5,
         });
 
-        const customerData = [];
         const selectedCustomers = [];
         const selectedPoints = [];
-        const geocoder = new MapboxGeocoder({
-            accessToken: mapboxgl.accessToken,
-            mapboxgl: mapboxgl,
-            placeholder: "Startpunkt eingeben...",
-        });
 
-        document.getElementById('geocoder').appendChild(geocoder.onAdd(map));
-
-        geocoder.on('result', () => {
-            optimizeRoute();
-        });
-
-        for (let i = 0; i < 50; i++) {
-            customerData.push({
-                id: i + 1,
-                name: `Kunde ${i + 1}`,
-                phone: `01234${i + 1}`,
-                email: `kunde${i + 1}@example.com`,
-                coordinates: [
-                    10 + Math.random() * 5 - 2.5,
-                    50 + Math.random() * 5 - 2.5,
-                ],
-            });
-        }
+        const customerData = Array.from({ length: 50 }, (_, i) => ({
+            id: i + 1,
+            name: `Kunde ${i + 1}`,
+            coordinates: [
+                10 + Math.random() * 5 - 2.5,
+                50 + Math.random() * 5 - 2.5,
+            ],
+        }));
 
         customerData.forEach((customer) => {
-            const markerElement = document.createElement('div');
-            markerElement.className = 'custom-marker';
-
-            markerElement.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-                </svg>
-            `;
-
-            const popup = new mapboxgl.Popup().setHTML(`
-                <h3>${customer.name}</h3>
-                <p>Telefon: ${customer.phone}</p>
-                <p>E-Mail: ${customer.email}</p>
-                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
-            `);
-
-            new mapboxgl.Marker({ element: markerElement })
+            const marker = new mapboxgl.Marker()
                 .setLngLat(customer.coordinates)
-                .setPopup(popup)
+                .setPopup(new mapboxgl.Popup().setHTML(`
+                    <h3>${customer.name}</h3>
+                    <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
+                `))
                 .addTo(map);
         });
 
-        function addToRoute(customerId) {
-            const customer = customerData.find((c) => c.id === customerId);
+        window.addToRoute = function (customerId) {
+            const customer = customerData.find(c => c.id === customerId);
             if (!selectedCustomers.includes(customer)) {
                 selectedCustomers.push(customer);
                 selectedPoints.push(customer.coordinates);
-                optimizeRoute();
+                console.log("Route aktualisiert", selectedPoints);
             }
-        }
-
-        function optimizeRoute() {
-            const coordinates = selectedPoints.map((point) => point.join(',')).join(';');
-            if (coordinates.length < 1) return;
-
-            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-            fetch(query)
-                .then((response) => response.json())
-                .then((data) => {
-                    const route = data.trips[0];
-                    const routeGeoJSON = {
-                        type: 'Feature',
-                        geometry: route.geometry,
-                    };
-
-                    if (map.getSource('route')) {
-                        map.getSource('route').setData(routeGeoJSON);
-                    } else {
-                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
-                        map.addLayer({
-                            id: 'route',
-                            type: 'line',
-                            source: 'route',
-                            layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': 'black', 'line-width': 4 },
-                        });
-                    }
-
-                    document.getElementById('route-distance').innerText = `Distanz: ${(route.distance / 1000).toFixed(1)} km`;
-                    document.getElementById('route-time').innerText = `Zeit: ${Math.round(route.duration / 60)} Minuten`;
-                });
-        }
-
-        document.getElementById('show-route-button').addEventListener('click', () => {
-            const routePopup = document.getElementById('route-popup');
-            const routeTableBody = document.getElementById('route-table-body');
-
-            routeTableBody.innerHTML = selectedCustomers
-                .map((customer, index) => `
-                    <tr>
-                        <td>${index + 1}. ${customer.name}</td>
-                        <td>${customer.coordinates.join(', ')}</td>
-                    </tr>
-                `)
-                .join('');
-
-            routePopup.style.display = 'block';
-        });
-
-        document.getElementById('update-route').addEventListener('click', () => {
-            const startTime = document.getElementById('start-time').value;
-            const geocoderInput = geocoder.lastSelected;
-            let startLocation = geocoderInput ? geocoderInput.geometry.coordinates : null;
-
-            if (!startLocation) {
-                alert('Bitte geben Sie eine Startadresse ein.');
-                return;
-            }
-
-            if (!selectedPoints.some((point) => point[0] === startLocation[0] && point[1] === startLocation[1])) {
-                selectedPoints.unshift(startLocation);
-            }
-
-            alert(`Die Route startet um ${startTime}.`);
-            optimizeRoute();
-        });
-
-        document.addEventListener('click', (event) => {
-            const routePopup = document.getElementById('route-popup');
-            if (!routePopup.contains(event.target) && event.target.id !== 'show-route-button') {
-                routePopup.style.display = 'none';
-            }
-        });
+        };
     </script>
 </body>
 </html>
