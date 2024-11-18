@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Maps-ähnliche App</title>
+    <title>Custom Dynamic Markers</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -14,66 +14,30 @@
             bottom: 0;
             width: 100%;
         }
-        .floating-button {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background-color: white;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
+        .custom-marker {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            transition: transform 0.2s ease-in-out;
-        }
-        .floating-button:hover {
-            transform: scale(1.1);
-        }
-        .info-box {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            padding: 15px;
-            max-width: 300px;
+            text-align: center;
+            color: white;
             font-family: Arial, sans-serif;
-            line-height: 1.6;
         }
-        .info-box h3 {
-            margin: 0 0 10px;
-            font-size: 18px;
-            font-weight: bold;
+        .custom-marker .label {
+            background-color: #0078FF;
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-size: 12px;
+            margin-bottom: 5px;
         }
-        .info-box p {
-            margin: 5px 0;
-            font-size: 14px;
+        .custom-marker svg {
+            width: 40px;
+            height: 40px;
         }
     </style>
 </head>
 <body>
     <!-- Karte -->
     <div id="map"></div>
-
-    <!-- Info-Box -->
-    <div class="info-box">
-        <h3>Route-Details</h3>
-        <p id="route-customers">Kunden: 0</p>
-        <p id="route-distance">Distanz: 0 km</p>
-        <p id="route-time">Zeit: 0 Minuten</p>
-    </div>
-
-    <!-- Floating Button -->
-    <div class="floating-button" id="details-button">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="#4285F4" viewBox="0 0 24 24" width="36px" height="36px">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-            <path d="M11 17h2v-6h-2zm0-8h2V7h-2z"/>
-        </svg>
-    </div>
 
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
@@ -86,8 +50,6 @@
             zoom: 5,
         });
 
-        const markers = [];
-        const selectedPoints = [];
         const customerData = [];
 
         // 50 Testkunden zufällig generieren
@@ -104,93 +66,31 @@
             });
         }
 
-        // Marker hinzufügen
+        // Dynamische benutzerdefinierte Marker hinzufügen
         customerData.forEach((customer) => {
-            const popupHtml = `
-                <h3 class="font-bold">${customer.name}</h3>
-                <p>Telefon: ${customer.phone}</p>
-                <p>E-Mail: ${customer.email}</p>
-            `;
-
             const markerElement = document.createElement('div');
+            markerElement.className = 'custom-marker';
+
+            // Marker-Label und SVG hinzufügen
             markerElement.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" fill="#4285F4" viewBox="0 0 24 24" width="36px" height="36px">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                <div class="label">${customer.name}</div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0078FF">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
                 </svg>
             `;
 
-            const marker = new mapboxgl.Marker({ element: markerElement })
+            // Popup mit Kundeninformationen
+            const popup = new mapboxgl.Popup().setHTML(`
+                <h3>${customer.name}</h3>
+                <p>Telefon: ${customer.phone}</p>
+                <p>E-Mail: ${customer.email}</p>
+            `);
+
+            // Marker erstellen
+            new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
-                .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
+                .setPopup(popup)
                 .addTo(map);
-
-            // Klick-Event für Marker
-            marker.getElement().addEventListener('click', () => {
-                if (
-                    !selectedPoints.some(
-                        (point) =>
-                            point[0] === customer.coordinates[0] &&
-                            point[1] === customer.coordinates[1]
-                    )
-                ) {
-                    selectedPoints.push(customer.coordinates);
-                    calculateRoute();
-                }
-            });
-
-            markers.push(marker);
-        });
-
-        // Route berechnen
-        function calculateRoute() {
-            if (selectedPoints.length < 2) {
-                updateRouteInfo(0, 0, 0);
-                return;
-            }
-
-            const coordinates = selectedPoints
-                .map((point) => point.join(','))
-                .join(';');
-            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-
-            fetch(query)
-                .then((response) => response.json())
-                .then((data) => {
-                    const route = data.trips[0];
-                    const routeGeoJSON = {
-                        type: 'Feature',
-                        geometry: route.geometry,
-                    };
-
-                    if (map.getSource('route')) {
-                        map.getSource('route').setData(routeGeoJSON);
-                    } else {
-                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
-                        map.addLayer({
-                            id: 'route',
-                            type: 'line',
-                            source: 'route',
-                            layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': '#4285F4', 'line-width': 4 },
-                        });
-                    }
-
-                    const distance = (route.distance / 1000).toFixed(1);
-                    const duration = Math.round(route.duration / 60);
-                    updateRouteInfo(selectedPoints.length, distance, duration);
-                })
-                .catch((error) => console.error('Fehler bei der Routenberechnung:', error));
-        }
-
-        function updateRouteInfo(customers, distance, time) {
-            document.getElementById('route-customers').innerText = `Kunden: ${customers}`;
-            document.getElementById('route-distance').innerText = `Distanz: ${distance} km`;
-            document.getElementById('route-time').innerText = `Zeit: ${time} Minuten`;
-        }
-
-        // Details-Schaltfläche
-        document.getElementById('details-button').addEventListener('click', () => {
-            alert('Weitere Details kommen bald!');
         });
     </script>
 </body>
