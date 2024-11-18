@@ -3,35 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Dynamic Markers</title>
+    <title>AERO INSPECT - Map</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* Allgemeines Styling */
+        body {
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f4f4f4; /* Hintergrundfarbe wie Wix-Seite */
+        }
+
+        /* Kartencontainer */
         #map {
             position: absolute;
             top: 0;
             bottom: 0;
             width: 100%;
         }
+
+        /* Benutzerdefinierte Marker */
         .custom-marker {
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
             color: white;
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
         }
+
         .custom-marker .label {
-            background-color: #0078FF;
-            border-radius: 3px;
-            padding: 2px 5px;
+            background-color: #003366; /* Dunkelblau wie Wix-Seite */
+            border-radius: 5px;
+            padding: 3px 8px;
             font-size: 12px;
             margin-bottom: 5px;
         }
+
         .custom-marker svg {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
+        }
+
+        /* Infobox für Routeninformationen */
+        .info-box {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: #003366; /* Dunkelblau wie Wix-Seite */
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            max-width: 300px;
+            line-height: 1.6;
+        }
+
+        .info-box h3 {
+            margin: 0 0 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        /* Floating Button */
+        .floating-button {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .floating-button:hover {
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -39,13 +97,29 @@
     <!-- Karte -->
     <div id="map"></div>
 
+    <!-- Info-Box -->
+    <div class="info-box">
+        <h3>Route-Details</h3>
+        <p id="route-customers">Kunden: 0</p>
+        <p id="route-distance">Distanz: 0 km</p>
+        <p id="route-time">Zeit: 0 Minuten</p>
+    </div>
+
+    <!-- Floating Button -->
+    <div class="floating-button" id="details-button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="#003366" viewBox="0 0 24 24" width="36px" height="36px">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+            <path d="M11 17h2v-6h-2zm0-8h2V7h-2z"/>
+        </svg>
+    </div>
+
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
         // Initialisierung der Karte
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/light-v10', // Google Maps-ähnlicher Stil
+            style: 'mapbox://styles/mapbox/light-v10', // Minimalistischer Stil
             center: [10.0, 50.0],
             zoom: 5,
         });
@@ -74,7 +148,7 @@
             // Marker-Label und SVG hinzufügen
             markerElement.innerHTML = `
                 <div class="label">${customer.name}</div>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0078FF">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#003366">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
                 </svg>
             `;
