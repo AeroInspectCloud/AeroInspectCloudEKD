@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Mapbox mit Schaltflächen</title>
+    <title>Mapbox Route mit Zeit</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <style>
@@ -13,7 +13,7 @@
             position: absolute;
             top: 10px;
             left: 10px;
-            z-index: 1;
+            z-index: 9999;
         }
         .button-container button {
             margin: 5px;
@@ -24,14 +24,23 @@
             border-radius: 5px;
             cursor: pointer;
         }
+        .route-info {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+            z-index: 9999;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="button-container">
-        <button id="show-markers">Marker anzeigen</button>
-        <button id="draw-route">Route zeichnen</button>
-        <button id="change-style">Kartenstil ändern</button>
+    <div class="route-info" id="route-info">
+        <strong>Routenzeit:</strong> <span id="route-time">0</span> Minuten
     </div>
     <script>
         // Mapbox API-Schlüssel
@@ -45,58 +54,68 @@
             zoom: 5
         });
 
-        // Beispiel: Marker hinzufügen
-        const customerData = [
-            { id: 1, name: "Kunde 1", coordinates: [10.0, 50.0] },
-            { id: 2, name: "Kunde 2", coordinates: [10.2, 50.1] }
-        ];
-
         const markers = [];
-        customerData.forEach(customer => {
-            const marker = new mapboxgl.Marker()
-                .setLngLat(customer.coordinates)
-                .setPopup(new mapboxgl.Popup().setHTML(`<h3>${customer.name}</h3>`))
+        const selectedPoints = [];
+
+        // 50 zufällige Marker hinzufügen
+        for (let i = 0; i < 50; i++) {
+            const lat = 50 + Math.random() * 5 - 2.5; // Zufällige Breite
+            const lng = 10 + Math.random() * 5 - 2.5; // Zufällige Länge
+
+            const marker = new mapboxgl.Marker({ color: 'red' })
+                .setLngLat([lng, lat])
+                .setPopup(new mapboxgl.Popup().setHTML(`<h3>Marker ${i + 1}</h3>`))
                 .addTo(map);
+
+            // Klick-Event für Marker
+            marker.getElement().addEventListener('click', () => {
+                selectedPoints.push([lng, lat]);
+                marker.getElement().style.backgroundColor = 'blue'; // Farbe ändern, wenn ausgewählt
+                calculateRoute();
+            });
+
             markers.push(marker);
-        });
+        }
 
-        // Event für "Marker anzeigen" Schaltfläche
-        document.getElementById('show-markers').addEventListener('click', () => {
-            markers.forEach(marker => marker.togglePopup());
-        });
-
-        // Event für "Route zeichnen" Schaltfläche
-        document.getElementById('draw-route').addEventListener('click', () => {
-            const routeCoordinates = customerData.map(customer => customer.coordinates);
-            const geojson = {
-                type: 'Feature',
-                properties: {},
-                geometry: {
-                    type: 'LineString',
-                    coordinates: routeCoordinates
-                }
-            };
-
-            if (map.getSource('route')) {
-                map.getSource('route').setData(geojson);
-            } else {
-                map.addSource('route', { type: 'geojson', data: geojson });
-                map.addLayer({
-                    id: 'route',
-                    type: 'line',
-                    source: 'route',
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': '#ff0000', 'line-width': 4 }
-                });
+        // Route berechnen und anzeigen
+        function calculateRoute() {
+            if (selectedPoints.length < 2) {
+                document.getElementById('route-time').innerText = '0';
+                return;
             }
-        });
 
-        // Event für "Kartenstil ändern" Schaltfläche
-        document.getElementById('change-style').addEventListener('click', () => {
-            const currentStyle = map.getStyle().name;
-            const newStyle = currentStyle === 'Streets' ? 'satellite-v9' : 'streets-v11';
-            map.setStyle(`mapbox://styles/mapbox/${newStyle}`);
-        });
+            const coordinates = selectedPoints.map(point => point.join(',')).join(';');
+            const query = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+
+            fetch(query)
+                .then(response => response.json())
+                .then(data => {
+                    const route = data.routes[0];
+                    const routeGeoJSON = {
+                        type: 'Feature',
+                        geometry: route.geometry
+                    };
+
+                    // Bestehende Route entfernen
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(routeGeoJSON);
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': '#0000ff', 'line-width': 4 }
+                        });
+                    }
+
+                    // Routenzeit anzeigen
+                    const duration = Math.round(route.duration / 60); // Sekunden in Minuten umrechnen
+                    document.getElementById('route-time').innerText = duration;
+                })
+                .catch(error => console.error('Fehler bei der Routenberechnung:', error));
+        }
     </script>
 </body>
 </html>
