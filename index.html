@@ -3,44 +3,39 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Mapbox Route mit Zeit</title>
+    <title>Optimierte Route mit Mapbox</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .button-container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 9999;
-        }
-        .button-container button {
-            margin: 5px;
-            padding: 10px;
-            background-color: #0078ff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
         .route-info {
             position: absolute;
             bottom: 10px;
             right: 10px;
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            font-family: Arial, sans-serif;
             font-size: 14px;
             z-index: 9999;
+        }
+        .route-info strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 5px;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
     <div class="route-info" id="route-info">
-        <strong>Routenzeit:</strong> <span id="route-time">0</span> Minuten
+        <strong>Route-Informationen</strong>
+        <div id="route-customers">Kunden: 0</div>
+        <div id="route-distance">Distanz: 0 km</div>
+        <div id="route-time">Zeit: 0 Minuten</div>
     </div>
     <script>
         // Mapbox API-Schlüssel
@@ -57,40 +52,52 @@
         const markers = [];
         const selectedPoints = [];
 
+        // Moderner Pin-Stil
+        const pinSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" fill="#0078ff" viewBox="0 0 24 24" width="30px" height="30px">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+            </svg>
+        `;
+
         // 50 zufällige Marker hinzufügen
         for (let i = 0; i < 50; i++) {
             const lat = 50 + Math.random() * 5 - 2.5; // Zufällige Breite
             const lng = 10 + Math.random() * 5 - 2.5; // Zufällige Länge
 
-            const marker = new mapboxgl.Marker({ color: 'red' })
+            const el = document.createElement('div');
+            el.innerHTML = pinSvg;
+
+            const marker = new mapboxgl.Marker({ element: el })
                 .setLngLat([lng, lat])
                 .setPopup(new mapboxgl.Popup().setHTML(`<h3>Marker ${i + 1}</h3>`))
                 .addTo(map);
 
             // Klick-Event für Marker
             marker.getElement().addEventListener('click', () => {
-                selectedPoints.push([lng, lat]);
-                marker.getElement().style.backgroundColor = 'blue'; // Farbe ändern, wenn ausgewählt
-                calculateRoute();
+                if (!selectedPoints.some(point => point[0] === lng && point[1] === lat)) {
+                    selectedPoints.push([lng, lat]);
+                    el.style.transform = 'scale(1.2)'; // Marker hervorheben
+                    calculateOptimizedRoute();
+                }
             });
 
             markers.push(marker);
         }
 
-        // Route berechnen und anzeigen
-        function calculateRoute() {
+        // Optimierte Route berechnen und anzeigen
+        function calculateOptimizedRoute() {
             if (selectedPoints.length < 2) {
-                document.getElementById('route-time').innerText = '0';
+                updateRouteInfo(0, 0, 0);
                 return;
             }
 
             const coordinates = selectedPoints.map(point => point.join(',')).join(';');
-            const query = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
 
             fetch(query)
                 .then(response => response.json())
                 .then(data => {
-                    const route = data.routes[0];
+                    const route = data.trips[0];
                     const routeGeoJSON = {
                         type: 'Feature',
                         geometry: route.geometry
@@ -106,15 +113,23 @@
                             type: 'line',
                             source: 'route',
                             layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': '#0000ff', 'line-width': 4 }
+                            paint: { 'line-color': '#0078ff', 'line-width': 4 }
                         });
                     }
 
-                    // Routenzeit anzeigen
-                    const duration = Math.round(route.duration / 60); // Sekunden in Minuten umrechnen
-                    document.getElementById('route-time').innerText = duration;
+                    // Routeninformationen aktualisieren
+                    const distance = (route.distance / 1000).toFixed(1); // Meter in Kilometer
+                    const duration = Math.round(route.duration / 60); // Sekunden in Minuten
+                    updateRouteInfo(selectedPoints.length, distance, duration);
                 })
                 .catch(error => console.error('Fehler bei der Routenberechnung:', error));
+        }
+
+        // Routeninformationen aktualisieren
+        function updateRouteInfo(customers, distance, time) {
+            document.getElementById('route-customers').innerText = `Kunden: ${customers}`;
+            document.getElementById('route-distance').innerText = `Distanz: ${distance} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${time} Minuten`;
         }
     </script>
 </body>
