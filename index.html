@@ -3,11 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Optimierte Route mit Mapbox</title>
+    <title>Optimierte Route mit Zeitplanung</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         .route-info {
             position: absolute;
@@ -18,14 +18,55 @@
             padding: 15px;
             border-radius: 10px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            font-family: Arial, sans-serif;
             font-size: 14px;
             z-index: 9999;
         }
-        .route-info strong {
-            display: block;
-            font-size: 16px;
-            margin-bottom: 5px;
+        .route-info strong { font-size: 16px; }
+        .popup-table {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -20%);
+            width: 50%;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            padding: 20px;
+        }
+        .popup-table h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .popup-table table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .popup-table table, .popup-table th, .popup-table td {
+            border: 1px solid #ddd;
+        }
+        .popup-table th, .popup-table td {
+            padding: 10px;
+            text-align: left;
+        }
+        .popup-table button {
+            background-color: #0078ff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .popup-table button:hover {
+            background-color: #0056cc;
+        }
+        .close-popup {
+            float: right;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -36,6 +77,24 @@
         <div id="route-customers">Kunden: 0</div>
         <div id="route-distance">Distanz: 0 km</div>
         <div id="route-time">Zeit: 0 Minuten</div>
+        <button id="show-route-details">Details anzeigen</button>
+    </div>
+    <div class="popup-table" id="popup-table">
+        <span class="close-popup" id="close-popup">&times;</span>
+        <h2>Routenübersicht</h2>
+        <table id="route-table">
+            <thead>
+                <tr>
+                    <th>Kunde</th>
+                    <th>Adresse</th>
+                    <th>Ankunftszeit</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <label>Startdatum: <input type="date" id="start-date"></label><br><br>
+        <label>Startzeit: <input type="time" id="start-time"></label><br><br>
+        <button id="calculate-arrival-times">Ankunftszeiten berechnen</button>
     </div>
     <script>
         // Mapbox API-Schlüssel
@@ -51,41 +110,39 @@
 
         const markers = [];
         const selectedPoints = [];
+        const customerData = [
+            { id: 1, name: "Kunde 1", phone: "0123456789", email: "kunde1@example.com", coordinates: [10.1, 50.1] },
+            { id: 2, name: "Kunde 2", phone: "0987654321", email: "kunde2@example.com", coordinates: [10.3, 50.2] },
+            { id: 3, name: "Kunde 3", phone: "0123987654", email: "kunde3@example.com", coordinates: [10.5, 50.3] }
+            // Weitere Kunden hinzufügen
+        ];
 
-        // Moderner Pin-Stil
-        const pinSvg = `
-            <svg xmlns="http://www.w3.org/2000/svg" fill="#0078ff" viewBox="0 0 24 24" width="30px" height="30px">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
-            </svg>
-        `;
+        // Marker hinzufügen
+        customerData.forEach(customer => {
+            const popupHtml = `
+                <h3>${customer.name}</h3>
+                <p>Telefon: ${customer.phone}</p>
+                <p>E-Mail: ${customer.email}</p>
+            `;
 
-        // 50 zufällige Marker hinzufügen
-        for (let i = 0; i < 50; i++) {
-            const lat = 50 + Math.random() * 5 - 2.5; // Zufällige Breite
-            const lng = 10 + Math.random() * 5 - 2.5; // Zufällige Länge
-
-            const el = document.createElement('div');
-            el.innerHTML = pinSvg;
-
-            const marker = new mapboxgl.Marker({ element: el })
-                .setLngLat([lng, lat])
-                .setPopup(new mapboxgl.Popup().setHTML(`<h3>Marker ${i + 1}</h3>`))
+            const marker = new mapboxgl.Marker()
+                .setLngLat(customer.coordinates)
+                .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
                 .addTo(map);
 
             // Klick-Event für Marker
             marker.getElement().addEventListener('click', () => {
-                if (!selectedPoints.some(point => point[0] === lng && point[1] === lat)) {
-                    selectedPoints.push([lng, lat]);
-                    el.style.transform = 'scale(1.2)'; // Marker hervorheben
-                    calculateOptimizedRoute();
+                if (!selectedPoints.some(point => point[0] === customer.coordinates[0] && point[1] === customer.coordinates[1])) {
+                    selectedPoints.push(customer.coordinates);
+                    calculateRoute();
                 }
             });
 
             markers.push(marker);
-        }
+        });
 
-        // Optimierte Route berechnen und anzeigen
-        function calculateOptimizedRoute() {
+        // Route berechnen
+        function calculateRoute() {
             if (selectedPoints.length < 2) {
                 updateRouteInfo(0, 0, 0);
                 return;
@@ -117,9 +174,9 @@
                         });
                     }
 
-                    // Routeninformationen aktualisieren
-                    const distance = (route.distance / 1000).toFixed(1); // Meter in Kilometer
-                    const duration = Math.round(route.duration / 60); // Sekunden in Minuten
+                    // Route-Info aktualisieren
+                    const distance = (route.distance / 1000).toFixed(1);
+                    const duration = Math.round(route.duration / 60);
                     updateRouteInfo(selectedPoints.length, distance, duration);
                 })
                 .catch(error => console.error('Fehler bei der Routenberechnung:', error));
@@ -131,6 +188,28 @@
             document.getElementById('route-distance').innerText = `Distanz: ${distance} km`;
             document.getElementById('route-time').innerText = `Zeit: ${time} Minuten`;
         }
+
+        // Popup anzeigen und schließen
+        const popupTable = document.getElementById('popup-table');
+        document.getElementById('show-route-details').addEventListener('click', () => {
+            const tbody = document.getElementById('route-table').querySelector('tbody');
+            tbody.innerHTML = ''; // Leeren
+
+            customerData.forEach((customer, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${customer.name}</td>
+                    <td>${customer.coordinates.join(', ')}</td>
+                    <td>-</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            popupTable.style.display = 'block';
+        });
+        document.getElementById('close-popup').addEventListener('click', () => {
+            popupTable.style.display = 'none';
+        });
     </script>
 </body>
 </html>
