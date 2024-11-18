@@ -6,7 +6,7 @@
     <title>AERO INSPECT - MAP</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0.mapbox-gl.css" rel="stylesheet">
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -32,50 +32,49 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
 
-        .popup-content {
-            background-color: rgba(0, 0, 0, 0.9);
+        .info-box {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
             color: white;
             border-radius: 10px;
-            padding: 15px;
-            font-family: 'Roboto', sans-serif;
-            font-size: 14px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            max-width: 300px;
+            line-height: 1.6;
         }
 
-        .popup-content h3 {
+        .info-box h3 {
             margin: 0 0 10px;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             text-transform: uppercase;
         }
 
-        .popup-content input {
-            width: 100%;
-            padding: 5px;
+        .info-box p {
             margin: 5px 0;
-            border: none;
-            border-radius: 5px;
-            background-color: #333;
-            color: white;
-            text-align: center;
+            font-size: 14px;
         }
 
-        .popup-content button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
+        .floating-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
             background-color: black;
             color: white;
-            border: none;
-            border-radius: 5px;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
             font-weight: bold;
             text-transform: uppercase;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease-in-out;
         }
 
-        .popup-content button:hover {
-            background-color: white;
-            color: black;
+        .floating-button:hover {
+            transform: scale(1.05);
         }
 
         .route-details-popup {
@@ -111,10 +110,39 @@
             padding: 10px;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
+
+        .route-details-popup button {
+            width: 100%;
+            padding: 10px;
+            background-color: black;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .route-details-popup button:hover {
+            background-color: white;
+            color: black;
+        }
+
+        .route-details-popup #geocoder-container {
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+
+    <div class="info-box">
+        <h3>Routen-Details</h3>
+        <p id="route-customers">Kunden: 0</p>
+        <p id="route-distance">Distanz: 0 km</p>
+        <p id="route-time">Zeit: 0 Minuten</p>
+    </div>
 
     <div class="floating-button" id="show-route-button">Route anzeigen</div>
 
@@ -154,7 +182,7 @@
                 id: i + 1,
                 name: `Kunde ${i + 1}`,
                 coordinates: [10 + Math.random() * 5 - 2.5, 50 + Math.random() * 5 - 2.5],
-                visitDuration: 10, // Standardaufenthaltsdauer
+                visitDuration: 10, // Standard 10 Minuten Aufenthalt
             });
         }
 
@@ -162,16 +190,12 @@
             const markerElement = document.createElement('div');
             markerElement.className = 'custom-marker';
 
-            const popupContent = `
-                <div class="popup-content">
-                    <h3>${customer.name}</h3>
-                    <p>Standardaufenthalt: ${customer.visitDuration} Minuten</p>
-                    <button onclick="updateVisitDuration(${customer.id})">Ändern</button>
-                    <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
-                </div>
-            `;
-
-            const popup = new mapboxgl.Popup().setHTML(popupContent);
+            const popup = new mapboxgl.Popup().setHTML(`
+                <h3>${customer.name}</h3>
+                <p>Aufenthaltsdauer (Minuten): ${customer.visitDuration}</p>
+                <button onclick="updateVisitDuration(${customer.id})">Ändern</button>
+                <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
+            `);
 
             new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
@@ -180,11 +204,11 @@
         });
 
         window.updateVisitDuration = function (customerId) {
-            const duration = prompt('Geben Sie die neue Aufenthaltsdauer in Minuten ein:', '10');
             const customer = customerData.find((c) => c.id === customerId);
-            if (customer && duration) {
-                customer.visitDuration = parseInt(duration, 10) || 10;
-                alert(`Die Aufenthaltsdauer für ${customer.name} wurde auf ${customer.visitDuration} Minuten gesetzt.`);
+            const newDuration = prompt(`Neue Aufenthaltsdauer für ${customer.name} (Minuten):`, customer.visitDuration);
+            if (newDuration !== null) {
+                customer.visitDuration = parseInt(newDuration, 10) || 0;
+                updateRouteDetails();
             }
         };
 
@@ -195,21 +219,79 @@
                 selectedPoints.push(customer.coordinates);
                 updateRouteDetails();
                 drawRoute();
-                document.querySelector('.mapboxgl-popup').remove(); // Popup automatisch schließen
             }
         };
 
         function updateRouteDetails() {
             const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
-            console.log('Routen-Details aktualisieren');
+            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
+            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10 + totalVisitTime} Minuten`;
         }
 
         function drawRoute() {
-            if (selectedPoints.length < 2) return;
-            const coordinates = selectedPoints.map((point) => point.join(',')).join(';');
+            const allPoints = startPoint ? [startPoint, ...selectedPoints] : selectedPoints;
+            if (allPoints.length < 2) return;
+
+            const coordinates = allPoints.map((point) => point.join(',')).join(';');
             const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-            fetch(query).then((response) => response.json());
+
+            fetch(query)
+                .then((response) => response.json())
+                .then((data) => {
+                    const routeGeoJSON = {
+                        type: 'Feature',
+                        geometry: data.trips[0].geometry,
+                    };
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(routeGeoJSON);
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': 'black', 'line-width': 4 },
+                        });
+                    }
+                });
         }
+
+        document.getElementById('show-route-button').addEventListener('click', () => {
+            const popup = document.getElementById('route-popup');
+            const tableBody = document.getElementById('route-table-body');
+            tableBody.innerHTML = selectedCustomers
+                .map(
+                    (customer, index) => `
+                <tr>
+                    <td>${index + 1}. ${customer.name}</td>
+                    <td>${customer.coordinates.join(', ')}</td>
+                    <td>${customer.visitDuration} Minuten</td>
+                </tr>
+            `
+                )
+                .join('');
+            popup.style.display = 'block';
+        });
+
+        document.getElementById('close-popup').addEventListener('click', () => {
+            document.getElementById('route-popup').style.display = 'none';
+        });
+
+        const geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: 'Abfahrtsstandort eingeben...',
+        });
+
+        geocoder.on('result', (e) => {
+            startPoint = e.result.geometry.coordinates;
+            drawRoute();
+        });
+
+        document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
     </script>
 </body>
 </html>
