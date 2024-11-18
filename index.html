@@ -2,14 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AERO INSPECT - MAP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Mapbox CSS und JS -->
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <!-- Mapbox Geocoder CSS und JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* Ihr vorhandenes CSS bleibt unverändert */
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
@@ -132,6 +136,64 @@
         .route-details-popup #geocoder-container {
             margin-bottom: 15px;
         }
+
+        /* Zusätzliche CSS-Regeln, um das weiße Fenster mit X-Schließen zu entfernen */
+        .mapboxgl-popup {
+            background: none !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        .mapboxgl-popup-close-button {
+            display: none !important;
+        }
+
+        /* Neue CSS-Klasse für Pop-up-Inhalte */
+        .popup-content {
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .popup-content h3 {
+            margin: 0 0 15px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .popup-content label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .popup-content input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            border-radius: 5px;
+            border: none;
+            margin-bottom: 10px;
+        }
+
+        .popup-content button {
+            width: 100%;
+            padding: 10px;
+            background-color: black;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            margin-bottom: 10px;
+        }
+
+        .popup-content button:hover {
+            background-color: white;
+            color: black;
+        }
     </style>
 </head>
 <body>
@@ -177,46 +239,54 @@
         const selectedPoints = [];
         let startPoint = null;
 
+        // Generierung der Kundenkoordinaten
         for (let i = 0; i < 50; i++) {
             customerData.push({
                 id: i + 1,
                 name: `Kunde ${i + 1}`,
-                coordinates: [10 + Math.random() * 5 - 2.5, 50 + Math.random() * 5 - 2.5],
+                coordinates: [
+                    10 + (Math.random() - 0.5) * 5, // Längengrad zwischen 7.5 und 12.5
+                    50 + (Math.random() - 0.5) * 5  // Breitengrad zwischen 47.5 und 52.5
+                ],
                 visitDuration: 10, // Standardmäßig 10 Minuten
             });
         }
+
+        const bounds = new mapboxgl.LngLatBounds();
 
         customerData.forEach((customer) => {
             const markerElement = document.createElement('div');
             markerElement.className = 'custom-marker';
 
-            const popup = new mapboxgl.Popup();
             const popupContent = document.createElement('div');
-            popupContent.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-            popupContent.style.color = 'white';
-            popupContent.style.borderRadius = '10px';
-            popupContent.style.padding = '20px';
-            popupContent.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.5)';
+            popupContent.className = 'popup-content';
+
             popupContent.innerHTML = `
-                <h3 style="text-align: center; text-transform: uppercase; margin-bottom: 10px;">${customer.name}</h3>
-                <label for="visit-duration-${customer.id}" style="display: block; margin-bottom: 5px;">Aufenthaltsdauer (Minuten):</label>
+                <h3>${customer.name}</h3>
+                <label for="visit-duration-${customer.id}">Aufenthaltsdauer (Minuten):</label>
                 <input type="number" id="visit-duration-${customer.id}" min="0" value="${customer.visitDuration}" 
-                       onchange="updateVisitDuration(${customer.id}, this.value)" 
-                       style="width: 100%; padding: 5px; border-radius: 5px; border: none; margin-bottom: 10px;">
-                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})" 
-                        style="width: 100%; padding: 10px; background-color: black; color: white; 
-                               border-radius: 5px; text-transform: uppercase; cursor: pointer; 
-                               transition: all 0.3s ease-in-out;">
+                       onchange="updateVisitDuration(${customer.id}, this.value)">
+                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">
                     Zur Route hinzufügen
                 </button>
+                <button onclick="closePopup()">
+                    Schließen
+                </button>
             `;
+
+            const popup = new mapboxgl.Popup();
             popup.setDOMContent(popupContent);
 
             new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
                 .setPopup(popup)
                 .addTo(map);
+
+            bounds.extend(customer.coordinates);
         });
+
+        // Karte auf Kundenstandorte zentrieren
+        map.fitBounds(bounds, { padding: 50 });
 
         window.updateVisitDuration = function (customerId, duration) {
             const customer = customerData.find((c) => c.id === customerId);
@@ -233,12 +303,7 @@
                 selectedPoints.push(customer.coordinates);
                 updateRouteDetails();
                 drawRoute();
-
-                // Popup automatisch schließen
-                const activePopup = document.querySelector('.mapboxgl-popup');
-                if (activePopup) {
-                    activePopup.remove();
-                }
+                closePopup();
             }
         };
 
@@ -259,6 +324,10 @@
             fetch(query)
                 .then((response) => response.json())
                 .then((data) => {
+                    if (!data.trips || !data.trips[0]) {
+                        console.error('Keine Route gefunden:', data);
+                        return;
+                    }
                     const routeGeoJSON = {
                         type: 'Feature',
                         geometry: data.trips[0].geometry,
@@ -276,7 +345,15 @@
                             paint: { 'line-color': 'black', 'line-width': 4 },
                         });
                     }
+                })
+                .catch((error) => {
+                    console.error('Fehler beim Abrufen der Route:', error);
                 });
+        }
+
+        function closePopup() {
+            const activePopup = document.querySelector('.mapboxgl-popup');
+            if (activePopup) activePopup.remove();
         }
 
         document.getElementById('show-route-button').addEventListener('click', () => {
