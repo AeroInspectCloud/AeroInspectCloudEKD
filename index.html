@@ -6,22 +6,14 @@
     <title>Optimierte Route mit Zeitplanung</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .route-info {
+        #map {
             position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            font-size: 14px;
-            z-index: 9999;
+            top: 0;
+            bottom: 0;
+            width: 100%;
         }
-        .route-info strong { font-size: 16px; }
         .popup-table {
             display: none;
             position: fixed;
@@ -34,30 +26,6 @@
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
             z-index: 10000;
             padding: 20px;
-        }
-        .popup-table h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .popup-table table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .popup-table table, .popup-table th, .popup-table td {
-            border: 1px solid #ddd;
-        }
-        .popup-table th, .popup-table td {
-            padding: 10px;
-            text-align: left;
-        }
-        .popup-table button {
-            background-color: #0078ff;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
         }
         .popup-table button:hover {
             background-color: #0056cc;
@@ -72,53 +40,72 @@
 </head>
 <body>
     <div id="map"></div>
-    <div class="route-info" id="route-info">
-        <strong>Route-Informationen</strong>
-        <div id="route-customers">Kunden: 0</div>
-        <div id="route-distance">Distanz: 0 km</div>
-        <div id="route-time">Zeit: 0 Minuten</div>
-        <button id="show-route-details">Details anzeigen</button>
+    <div class="fixed bottom-5 right-5 bg-gray-900 text-white rounded-lg shadow-lg p-4 space-y-2 z-50">
+        <h3 class="text-lg font-bold">Route-Informationen</h3>
+        <p id="route-customers" class="text-sm">Kunden: 0</p>
+        <p id="route-distance" class="text-sm">Distanz: 0 km</p>
+        <p id="route-time" class="text-sm">Zeit: 0 Minuten</p>
+        <button id="show-route-details" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded">
+            Details anzeigen
+        </button>
     </div>
     <div class="popup-table" id="popup-table">
         <span class="close-popup" id="close-popup">&times;</span>
-        <h2>Routenübersicht</h2>
-        <table id="route-table">
+        <h2 class="text-xl font-bold text-center mb-4">Routenübersicht</h2>
+        <table class="w-full border-collapse border border-gray-300">
             <thead>
-                <tr>
-                    <th>Kunde</th>
-                    <th>Adresse</th>
-                    <th>Ankunftszeit</th>
+                <tr class="bg-gray-200">
+                    <th class="p-2 border border-gray-300">Kunde</th>
+                    <th class="p-2 border border-gray-300">Adresse</th>
+                    <th class="p-2 border border-gray-300">Ankunftszeit</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody id="route-table-body"></tbody>
         </table>
-        <label>Startdatum: <input type="date" id="start-date"></label><br><br>
-        <label>Startzeit: <input type="time" id="start-time"></label><br><br>
-        <button id="calculate-arrival-times">Ankunftszeiten berechnen</button>
+        <div class="flex space-x-4 mt-4">
+            <label class="flex flex-col">
+                <span>Startdatum:</span>
+                <input type="date" id="start-date" class="border border-gray-300 rounded p-2">
+            </label>
+            <label class="flex flex-col">
+                <span>Startzeit:</span>
+                <input type="time" id="start-time" class="border border-gray-300 rounded p-2">
+            </label>
+        </div>
+        <button id="calculate-arrival-times" class="bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded mt-4">
+            Ankunftszeiten berechnen
+        </button>
     </div>
     <script>
-        // Mapbox API-Schlüssel
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
-        // Karte initialisieren
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
             center: [10.0, 50.0],
-            zoom: 5
+            zoom: 5,
         });
 
         const markers = [];
         const selectedPoints = [];
-        const customerData = [
-            { id: 1, name: "Kunde 1", phone: "0123456789", email: "kunde1@example.com", coordinates: [10.1, 50.1] },
-            { id: 2, name: "Kunde 2", phone: "0987654321", email: "kunde2@example.com", coordinates: [10.3, 50.2] },
-            { id: 3, name: "Kunde 3", phone: "0123987654", email: "kunde3@example.com", coordinates: [10.5, 50.3] }
-            // Weitere Kunden hinzufügen
-        ];
+        const customerData = [];
+
+        // 50 Testkunden zufällig generieren
+        for (let i = 0; i < 50; i++) {
+            customerData.push({
+                id: i + 1,
+                name: `Kunde ${i + 1}`,
+                phone: `01234${i + 1}`,
+                email: `kunde${i + 1}@example.com`,
+                coordinates: [
+                    10 + Math.random() * 5 - 2.5,
+                    50 + Math.random() * 5 - 2.5,
+                ],
+            });
+        }
 
         // Marker hinzufügen
-        customerData.forEach(customer => {
+        customerData.forEach((customer) => {
             const popupHtml = `
                 <h3>${customer.name}</h3>
                 <p>Telefon: ${customer.phone}</p>
@@ -132,7 +119,13 @@
 
             // Klick-Event für Marker
             marker.getElement().addEventListener('click', () => {
-                if (!selectedPoints.some(point => point[0] === customer.coordinates[0] && point[1] === customer.coordinates[1])) {
+                if (
+                    !selectedPoints.some(
+                        (point) =>
+                            point[0] === customer.coordinates[0] &&
+                            point[1] === customer.coordinates[1]
+                    )
+                ) {
                     selectedPoints.push(customer.coordinates);
                     calculateRoute();
                 }
@@ -148,19 +141,20 @@
                 return;
             }
 
-            const coordinates = selectedPoints.map(point => point.join(',')).join(';');
+            const coordinates = selectedPoints
+                .map((point) => point.join(','))
+                .join(';');
             const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
 
             fetch(query)
-                .then(response => response.json())
-                .then(data => {
+                .then((response) => response.json())
+                .then((data) => {
                     const route = data.trips[0];
                     const routeGeoJSON = {
                         type: 'Feature',
-                        geometry: route.geometry
+                        geometry: route.geometry,
                     };
 
-                    // Bestehende Route entfernen
                     if (map.getSource('route')) {
                         map.getSource('route').setData(routeGeoJSON);
                     } else {
@@ -170,32 +164,34 @@
                             type: 'line',
                             source: 'route',
                             layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': '#0078ff', 'line-width': 4 }
+                            paint: { 'line-color': '#0078ff', 'line-width': 4 },
                         });
                     }
 
-                    // Route-Info aktualisieren
                     const distance = (route.distance / 1000).toFixed(1);
                     const duration = Math.round(route.duration / 60);
                     updateRouteInfo(selectedPoints.length, distance, duration);
                 })
-                .catch(error => console.error('Fehler bei der Routenberechnung:', error));
+                .catch((error) => console.error('Fehler bei der Routenberechnung:', error));
         }
 
-        // Routeninformationen aktualisieren
         function updateRouteInfo(customers, distance, time) {
             document.getElementById('route-customers').innerText = `Kunden: ${customers}`;
             document.getElementById('route-distance').innerText = `Distanz: ${distance} km`;
             document.getElementById('route-time').innerText = `Zeit: ${time} Minuten`;
         }
 
-        // Popup anzeigen und schließen
         const popupTable = document.getElementById('popup-table');
         document.getElementById('show-route-details').addEventListener('click', () => {
-            const tbody = document.getElementById('route-table').querySelector('tbody');
-            tbody.innerHTML = ''; // Leeren
+            const tbody = document.getElementById('route-table-body');
+            tbody.innerHTML = '';
 
-            customerData.forEach((customer, index) => {
+            selectedPoints.forEach((point, index) => {
+                const customer = customerData.find(
+                    (c) =>
+                        c.coordinates[0] === point[0] && c.coordinates[1] === point[1]
+                );
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${customer.name}</td>
@@ -207,6 +203,7 @@
 
             popupTable.style.display = 'block';
         });
+
         document.getElementById('close-popup').addEventListener('click', () => {
             popupTable.style.display = 'none';
         });
