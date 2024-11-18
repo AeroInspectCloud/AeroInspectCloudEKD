@@ -3,45 +3,99 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>Mapbox Karte</title>
+    <title>Mapbox mit Schaltflächen</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .button-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+        }
+        .button-container button {
+            margin: 5px;
+            padding: 10px;
+            background-color: #0078ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div class="button-container">
+        <button id="show-markers">Marker anzeigen</button>
+        <button id="draw-route">Route zeichnen</button>
+        <button id="change-style">Kartenstil ändern</button>
+    </div>
     <script>
         // Mapbox API-Schlüssel
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
-        // Map initialisieren
+        // Karte initialisieren
         const map = new mapboxgl.Map({
-            container: 'map', // Container-ID
+            container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
-            center: [10.0, 50.0], // Start-Koordinaten
+            center: [10.0, 50.0],
             zoom: 5
         });
 
-        // Beispiel: Kundendaten hinzufügen
+        // Beispiel: Marker hinzufügen
         const customerData = [
             { id: 1, name: "Kunde 1", coordinates: [10.0, 50.0] },
             { id: 2, name: "Kunde 2", coordinates: [10.2, 50.1] }
         ];
 
-        // Marker hinzufügen
+        const markers = [];
         customerData.forEach(customer => {
             const marker = new mapboxgl.Marker()
                 .setLngLat(customer.coordinates)
                 .setPopup(new mapboxgl.Popup().setHTML(`<h3>${customer.name}</h3>`))
                 .addTo(map);
+            markers.push(marker);
+        });
 
-            // Klick-Event für spätere Routenplanung
-            marker.getElement().addEventListener('click', () => {
-                console.log(`Punkt ausgewählt: ${customer.name}`);
-            });
+        // Event für "Marker anzeigen" Schaltfläche
+        document.getElementById('show-markers').addEventListener('click', () => {
+            markers.forEach(marker => marker.togglePopup());
+        });
+
+        // Event für "Route zeichnen" Schaltfläche
+        document.getElementById('draw-route').addEventListener('click', () => {
+            const routeCoordinates = customerData.map(customer => customer.coordinates);
+            const geojson = {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: routeCoordinates
+                }
+            };
+
+            if (map.getSource('route')) {
+                map.getSource('route').setData(geojson);
+            } else {
+                map.addSource('route', { type: 'geojson', data: geojson });
+                map.addLayer({
+                    id: 'route',
+                    type: 'line',
+                    source: 'route',
+                    layout: { 'line-join': 'round', 'line-cap': 'round' },
+                    paint: { 'line-color': '#ff0000', 'line-width': 4 }
+                });
+            }
+        });
+
+        // Event für "Kartenstil ändern" Schaltfläche
+        document.getElementById('change-style').addEventListener('click', () => {
+            const currentStyle = map.getStyle().name;
+            const newStyle = currentStyle === 'Streets' ? 'satellite-v9' : 'streets-v11';
+            map.setStyle(`mapbox://styles/mapbox/${newStyle}`);
         });
     </script>
 </body>
