@@ -12,7 +12,7 @@
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
-            background-color: #f4f4f4; /* Hintergrundfarbe wie Wix-Seite */
+            background-color: #f4f4f4; /* Hintergrundfarbe */
         }
 
         /* Kartencontainer */
@@ -26,19 +26,10 @@
         /* Benutzerdefinierte Marker */
         .custom-marker {
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            text-align: center;
-            color: white;
-            font-family: 'Roboto', sans-serif;
-        }
-
-        .custom-marker .label {
-            background-color: #003366; /* Dunkelblau wie Wix-Seite */
-            border-radius: 5px;
-            padding: 3px 8px;
-            font-size: 12px;
-            margin-bottom: 5px;
+            width: 40px;
+            height: 40px;
         }
 
         .custom-marker svg {
@@ -46,15 +37,36 @@
             height: 36px;
         }
 
+        /* Popup-Styling */
+        .mapboxgl-popup {
+            background-color: rgba(0, 0, 0, 0.8) !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4) !important;
+            color: white !important;
+            font-family: 'Roboto', sans-serif;
+        }
+
+        .mapboxgl-popup-content {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px !important;
+            border-radius: 8px;
+        }
+
+        .mapboxgl-popup-content h3,
+        .mapboxgl-popup-content p {
+            margin: 0 0 5px;
+            color: white;
+        }
+
         /* Infobox für Routeninformationen */
         .info-box {
             position: absolute;
             bottom: 20px;
             left: 20px;
-            background-color: #003366; /* Dunkelblau wie Wix-Seite */
+            background-color: rgba(0, 0, 0, 0.8); /* Schwarzer, transparenter Hintergrund */
             color: white;
             border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
             padding: 15px;
             max-width: 300px;
             line-height: 1.6;
@@ -145,9 +157,8 @@
             const markerElement = document.createElement('div');
             markerElement.className = 'custom-marker';
 
-            // Marker-Label und SVG hinzufügen
+            // SVG für Marker
             markerElement.innerHTML = `
-                <div class="label">${customer.name}</div>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#003366">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 4.94 6.17 11.66 6.41 11.92.38.4.98.4 1.37 0C12.83 20.66 19 13.94 19 9c0-3.87-3.13-7-7-7zm0 11c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
                 </svg>
