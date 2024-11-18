@@ -6,7 +6,7 @@
     <title>AERO INSPECT - MAP</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0.mapbox-gl.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -182,7 +182,7 @@
                 id: i + 1,
                 name: `Kunde ${i + 1}`,
                 coordinates: [10 + Math.random() * 5 - 2.5, 50 + Math.random() * 5 - 2.5],
-                visitDuration: 10, // Standard 10 Minuten Aufenthalt
+                visitDuration: 0,
             });
         }
 
@@ -192,9 +192,10 @@
 
             const popup = new mapboxgl.Popup().setHTML(`
                 <h3>${customer.name}</h3>
-                <p>Aufenthaltsdauer (Minuten): ${customer.visitDuration}</p>
-                <button onclick="updateVisitDuration(${customer.id})">Ändern</button>
-                <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
+                <label for="visit-duration-${customer.id}">Aufenthaltsdauer (Minuten):</label>
+                <input type="number" id="visit-duration-${customer.id}" min="0" value="0" 
+                onchange="updateVisitDuration(${customer.id}, this.value)">
+                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
             `);
 
             new mapboxgl.Marker({ element: markerElement })
@@ -203,11 +204,10 @@
                 .addTo(map);
         });
 
-        window.updateVisitDuration = function (customerId) {
+        window.updateVisitDuration = function (customerId, duration) {
             const customer = customerData.find((c) => c.id === customerId);
-            const newDuration = prompt(`Neue Aufenthaltsdauer für ${customer.name} (Minuten):`, customer.visitDuration);
-            if (newDuration !== null) {
-                customer.visitDuration = parseInt(newDuration, 10) || 0;
+            if (customer) {
+                customer.visitDuration = parseInt(duration, 10) || 0;
                 updateRouteDetails();
             }
         };
