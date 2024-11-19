@@ -10,6 +10,8 @@
     <!-- Mapbox Geocoder CSS und JS -->
     <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
+    <!-- Datepicker CSS (z.B. Flatpickr) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -34,6 +36,13 @@
             border-radius: 50%;
             border: 2px solid white;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .house-marker {
+            background-image: url('https://i.imgur.com/4zFGh0c.png'); /* Beispiel-Icon für Haus */
+            background-size: cover;
+            width: 30px;
+            height: 30px;
         }
 
         .info-box {
@@ -85,9 +94,9 @@
         .route-details-popup {
             display: none;
             position: fixed;
-            top: 20%;
+            top: 10%;
             left: 50%;
-            transform: translate(-50%, -20%);
+            transform: translate(-50%, -10%);
             width: 400px;
             background-color: rgba(0, 0, 0, 0.9);
             color: white;
@@ -134,7 +143,8 @@
             color: black;
         }
 
-        .route-details-popup #geocoder-container {
+        .route-details-popup #geocoder-container,
+        .route-details-popup #date-picker-container {
             margin-bottom: 15px;
         }
 
@@ -206,7 +216,21 @@
             background-color: white !important;
             color: black !important;
         }
+
+        /* Anpassungen für das Pop-up, um das weiße Feld zu entfernen */
+        .mapboxgl-popup-content {
+            background: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        .mapboxgl-popup-tip {
+            display: none;
+        }
     </style>
+    <!-- Flatpickr JS für Datepicker -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
     <div id="map"></div>
@@ -222,7 +246,19 @@
 
     <div class="route-details-popup" id="route-popup">
         <h3>ROUTEN-DETAILS</h3>
-        <div id="geocoder-container"></div>
+
+        <!-- Datepicker -->
+        <div id="date-picker-container">
+            <label for="planned-date">Geplantes Datum:</label>
+            <input type="text" id="planned-date" placeholder="Datum auswählen">
+        </div>
+
+        <!-- Abfahrtsadresse -->
+        <div id="departure-address-container">
+            <label for="departure-address">Abfahrtsadresse:</label>
+            <div id="departure-geocoder"></div>
+        </div>
+
         <table>
             <thead>
                 <tr>
@@ -237,7 +273,7 @@
     </div>
 
     <script>
-        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY2w1ZHB4enR5MDNybzNqbW1rODJ6cWtlNiJ9.Fx-t6STHzxEwXo5syXVLCA';
 
         const map = new mapboxgl.Map({
             container: 'map',
@@ -250,6 +286,7 @@
         const selectedCustomers = [];
         const selectedPoints = [];
         let startPoint = null;
+        let startMarker = null;
 
         // Generierung der Kundenkoordinaten
         for (let i = 0; i < 50; i++) {
@@ -292,8 +329,8 @@
                 button.addEventListener('click', buttonClickFeedback);
             });
 
-            const popup = new mapboxgl.Popup();
-            popup.setDOMContent(popupContent);
+            const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+                .setDOMContent(popupContent);
 
             new mapboxgl.Marker({ element: markerElement })
                 .setLngLat(customer.coordinates)
@@ -326,7 +363,7 @@
             }
         };
 
-        function updateRouteDetails(totalDistance, totalDuration) {
+        function updateRouteDetails(totalDistance = 0, totalDuration = 0) {
             const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
 
             const distanceInKm = (totalDistance / 1000).toFixed(2); // in Kilometern
@@ -339,7 +376,14 @@
 
         function drawRoute() {
             const allPoints = startPoint ? [startPoint, ...selectedPoints] : selectedPoints;
-            if (allPoints.length < 2) return;
+            if (allPoints.length < 2) {
+                updateRouteDetails(); // Reset der Routen-Details
+                if (map.getSource('route')) {
+                    map.removeLayer('route');
+                    map.removeSource('route');
+                }
+                return;
+            }
 
             const coordinates = allPoints.map((point) => point.join(',')).join(';');
             const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
@@ -418,18 +462,39 @@
             popup.style.display = 'block';
         });
 
-        const geocoder = new MapboxGeocoder({
-            accessToken: mapboxgl.accessToken,
-            mapboxgl: mapboxgl,
-            placeholder: 'Abfahrtsstandort eingeben...',
+        // Datepicker initialisieren
+        flatpickr("#planned-date", {
+            dateFormat: "d.m.Y",
+            minDate: "today",
         });
 
-        geocoder.on('result', (e) => {
+        // Abfahrtsadresse Geocoder
+        const departureGeocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: 'Abfahrtsadresse eingeben...',
+        });
+
+        departureGeocoder.on('result', (e) => {
             startPoint = e.result.geometry.coordinates;
+
+            // Entferne alten Marker
+            if (startMarker) {
+                startMarker.remove();
+            }
+
+            // Füge neuen Marker hinzu
+            const startMarkerElement = document.createElement('div');
+            startMarkerElement.className = 'house-marker';
+
+            startMarker = new mapboxgl.Marker({ element: startMarkerElement })
+                .setLngLat(startPoint)
+                .addTo(map);
+
             drawRoute();
         });
 
-        document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
+        document.getElementById('departure-geocoder').appendChild(departureGeocoder.onAdd(map));
     </script>
 </body>
 </html>
