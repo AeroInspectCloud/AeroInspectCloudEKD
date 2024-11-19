@@ -292,7 +292,9 @@
             const customer = customerData.find((c) => c.id === customerId);
             if (customer) {
                 customer.visitDuration = parseInt(duration, 10) || 0;
-                updateRouteDetails();
+                if (selectedCustomers.includes(customer)) {
+                    drawRoute();
+                }
             }
         };
 
@@ -301,17 +303,20 @@
             if (!selectedCustomers.includes(customer)) {
                 selectedCustomers.push(customer);
                 selectedPoints.push(customer.coordinates);
-                updateRouteDetails();
                 drawRoute();
                 closePopup();
             }
         };
 
-        function updateRouteDetails() {
+        function updateRouteDetails(totalDistance, totalDuration) {
             const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
+
+            const distanceInKm = (totalDistance / 1000).toFixed(2); // in Kilometern
+            const durationInMinutes = Math.round(totalDuration / 60) + totalVisitTime; // in Minuten
+
             document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
-            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
-            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10 + totalVisitTime} Minuten`;
+            document.getElementById('route-distance').innerText = `Distanz: ${distanceInKm} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${durationInMinutes} Minuten`;
         }
 
         function drawRoute() {
@@ -345,6 +350,13 @@
                             paint: { 'line-color': 'black', 'line-width': 4 },
                         });
                     }
+
+                    // Gesamtdistanz und -dauer erhalten
+                    const totalDistance = data.trips[0].distance; // in Metern
+                    const totalDuration = data.trips[0].duration; // in Sekunden
+
+                    // Routen-Details aktualisieren
+                    updateRouteDetails(totalDistance, totalDuration);
                 })
                 .catch((error) => {
                     console.error('Fehler beim Abrufen der Route:', error);
