@@ -13,7 +13,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Ihr vorhandenes CSS bleibt unverändert */
+        /* Ihr vorhandenes CSS bleibt größtenteils unverändert */
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
@@ -44,21 +44,22 @@
             color: white;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-            padding: 15px;
-            max-width: 300px;
+            padding: 10px; /* Reduziert */
+            max-width: 150px; /* Reduziert von 300px auf 150px */
             line-height: 1.6;
+            font-size: 0.9em; /* Schriftgröße angepasst */
         }
 
         .info-box h3 {
             margin: 0 0 10px;
-            font-size: 18px;
+            font-size: 16px; /* Reduziert */
             font-weight: bold;
             text-transform: uppercase;
         }
 
         .info-box p {
             margin: 5px 0;
-            font-size: 14px;
+            font-size: 12px; /* Reduziert */
         }
 
         .floating-button {
@@ -153,19 +154,22 @@
             background-color: rgba(0, 0, 0, 0.9);
             color: white;
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px; /* Reduziert um 25% von 20px */
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            font-size: 0.9em; /* Schriftgröße reduziert */
         }
 
         .popup-content h3 {
             margin: 0 0 15px;
             text-align: center;
             text-transform: uppercase;
+            font-size: 16px; /* Reduziert */
         }
 
         .popup-content label {
             display: block;
             margin-bottom: 5px;
+            font-size: 12px; /* Reduziert */
         }
 
         .popup-content input[type="number"] {
@@ -174,11 +178,12 @@
             border-radius: 5px;
             border: none;
             margin-bottom: 10px;
+            font-size: 12px; /* Reduziert */
         }
 
         .popup-content button {
             width: 100%;
-            padding: 10px;
+            padding: 8px; /* Reduziert */
             background-color: black;
             color: white;
             border: none;
@@ -188,11 +193,18 @@
             cursor: pointer;
             transition: all 0.3s ease-in-out;
             margin-bottom: 10px;
+            font-size: 12px; /* Reduziert */
         }
 
         .popup-content button:hover {
             background-color: white;
             color: black;
+        }
+
+        /* Neue CSS-Klasse für Klick-Feedback */
+        .button-clicked {
+            background-color: white !important;
+            color: black !important;
         }
     </style>
 </head>
@@ -273,6 +285,12 @@
                     Schließen
                 </button>
             `;
+
+            // Klick-Feedback für Buttons im Popup
+            const buttonsInPopup = popupContent.querySelectorAll('button');
+            buttonsInPopup.forEach(button => {
+                button.addEventListener('click', buttonClickFeedback);
+            });
 
             const popup = new mapboxgl.Popup();
             popup.setDOMContent(popupContent);
@@ -368,6 +386,21 @@
             if (activePopup) activePopup.remove();
         }
 
+        function buttonClickFeedback(event) {
+            const button = event.target;
+            button.classList.add('button-clicked');
+            setTimeout(() => {
+                button.classList.remove('button-clicked');
+            }, 200); // Rückkehr zum Original nach 200 ms
+        }
+
+        // Klick-Feedback für statische Buttons
+        document.getElementById('show-route-button').addEventListener('click', buttonClickFeedback);
+        document.getElementById('close-popup').addEventListener('click', function(event) {
+            buttonClickFeedback(event);
+            document.getElementById('route-popup').style.display = 'none';
+        });
+
         document.getElementById('show-route-button').addEventListener('click', () => {
             const popup = document.getElementById('route-popup');
             const tableBody = document.getElementById('route-table-body');
@@ -383,10 +416,6 @@
                 )
                 .join('');
             popup.style.display = 'block';
-        });
-
-        document.getElementById('close-popup').addEventListener('click', () => {
-            document.getElementById('route-popup').style.display = 'none';
         });
 
         const geocoder = new MapboxGeocoder({
