@@ -13,7 +13,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Ihr vorhandenes CSS bleibt größtenteils unverändert */
+        /* Ihr vorhandenes CSS bleibt unverändert */
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
@@ -35,133 +35,10 @@
             border: 2px solid white;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
-
-        .info-box {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-            padding: 10px;
-            max-width: 150px;
-            line-height: 1.6;
-            font-size: 0.9em;
-        }
-
-        .info-box h3 {
-            margin: 0 0 10px;
-            font-size: 16px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .info-box p {
-            margin: 5px 0;
-            font-size: 12px;
-        }
-
-        .floating-button {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background-color: black;
-            color: white;
-            border-radius: 8px;
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s ease-in-out;
-        }
-
-        .floating-button:hover {
-            transform: scale(1.05);
-        }
-
-        .route-details-popup {
-            display: none;
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translate(-50%, -20%);
-            width: 400px;
-            background-color: rgba(0, 0, 0, 0.9);
-            color: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-        }
-
-        .route-details-popup h3 {
-            margin: 0 0 15px;
-            text-align: center;
-            text-transform: uppercase;
-        }
-
-        .route-details-popup table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-        }
-
-        .route-details-popup th,
-        .route-details-popup td {
-            text-align: left;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .route-details-popup button {
-            width: 100%;
-            padding: 10px;
-            background-color: black;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: all 0.3s ease-in-out;
-        }
-
-        .route-details-popup button:hover {
-            background-color: white;
-            color: black;
-        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-
-    <div class="info-box">
-        <h3>Routen-Details</h3>
-        <p id="route-customers">Kunden: 0</p>
-        <p id="route-distance">Distanz: 0 km</p>
-        <p id="route-time">Zeit: 0 Minuten</p>
-    </div>
-
-    <div class="floating-button" id="show-route-button">Route anzeigen</div>
-
-    <div class="route-details-popup" id="route-popup">
-        <h3>ROUTEN-DETAILS</h3>
-        <div id="geocoder-container"></div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Kunde</th>
-                    <th>Ort</th>
-                    <th>Aufenthalt (Minuten)</th>
-                </tr>
-            </thead>
-            <tbody id="route-table-body"></tbody>
-        </table>
-        <button id="close-popup">Schließen</button>
-    </div>
 
     <script>
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
@@ -174,43 +51,42 @@
         });
 
         let customerData = [];
-        const selectedCustomers = [];
-        const selectedPoints = [];
-        let startPoint = null;
 
-        // SharePoint-Daten aus einer öffentlichen CSV laden
-        async function fetchSharePointDataFromLink() {
+        // SharePoint-Daten über REST-API laden
+        async function fetchSharePointData() {
             try {
                 const response = await fetch(
-                    "https://aeroinspect.sharepoint.com/:u:/s/AeroInspect/FKAJoq3rqUZEg3G2P-xC_o0BaMrbv7lvtlTkQ1keD-55sg?e=hf5jMw"
+                    "https://aeroinspect.sharepoint.com/sites/AeroInspect/_api/web/lists/getbytitle('Kundendaten Energiekonzepte Deutschland')/items", 
+                    {
+                        method: "GET",
+                        headers: {
+                            "Accept": "application/json;odata=verbose"
+                        }
+                    }
                 );
-                const text = await response.text();
-                const rows = text.split("\n").slice(1); // Kopfzeile überspringen
 
-                return rows
-                    .map((row) => row.split(",")) // Spalten teilen
-                    .filter((columns) => columns.length >= 4) // Nur vollständige Zeilen verwenden
-                    .map((columns) => ({
-                        id: parseInt(columns[0].trim(), 10), // Spalte für ID
-                        name: columns[1].trim(), // Spalte für Namen
-                        coordinates: [
-                            parseFloat(columns[2].trim()), // Spalte für Längengrad
-                            parseFloat(columns[3].trim()), // Spalte für Breitengrad
-                        ],
-                        visitDuration: 10, // Standardwert für Besuchsdauer
-                    }));
+                const data = await response.json();
+                return data.d.results.map(item => ({
+                    id: item.ID,
+                    name: item.Title, // Anpassung an den Spaltennamen in der SharePoint-Liste
+                    coordinates: [
+                        parseFloat(item.Längengrad), // Spalte für Längengrad
+                        parseFloat(item.Breitengrad) // Spalte für Breitengrad
+                    ],
+                    visitDuration: 10 // Standardwert für Besuchsdauer
+                }));
             } catch (error) {
-                console.error("Fehler beim Abrufen der Daten von SharePoint-Link:", error);
+                console.error("Fehler beim Abrufen der Daten von SharePoint:", error);
                 return [];
             }
         }
 
         async function initializeMap() {
-            customerData = await fetchSharePointDataFromLink();
+            customerData = await fetchSharePointData();
 
             const bounds = new mapboxgl.LngLatBounds();
 
-            customerData.forEach((customer) => {
+            customerData.forEach(customer => {
                 const markerElement = document.createElement('div');
                 markerElement.className = 'custom-marker';
 
@@ -220,14 +96,7 @@
                 popupContent.innerHTML = `
                     <h3>${customer.name}</h3>
                     <label for="visit-duration-${customer.id}">Aufenthaltsdauer (Minuten):</label>
-                    <input type="number" id="visit-duration-${customer.id}" min="0" value="${customer.visitDuration}" 
-                           onchange="updateVisitDuration(${customer.id}, this.value)">
-                    <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">
-                        Zur Route hinzufügen
-                    </button>
-                    <button onclick="closePopup()">
-                        Schließen
-                    </button>
+                    <input type="number" id="visit-duration-${customer.id}" min="0" value="${customer.visitDuration}">
                 `;
 
                 const popup = new mapboxgl.Popup();
@@ -247,4 +116,4 @@
         initializeMap();
     </script>
 </body>
-</html
+</html>
