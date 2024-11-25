@@ -10,10 +10,12 @@
     <!-- Mapbox Geocoder CSS und JS -->
     <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
+    <!-- Datepicker CSS (z.B. Flatpickr) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Ihr vorhandenes CSS bleibt unverändert */
+        /* Ihr vorhandenes CSS bleibt größtenteils unverändert */
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
@@ -35,13 +37,243 @@
             border: 2px solid white;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
         }
+
+        .house-marker {
+            background-image: url('https://i.imgur.com/4zFGh0c.png'); /* Beispiel-Icon für Haus */
+            background-size: cover;
+            width: 30px;
+            height: 30px;
+        }
+
+        .info-box {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            padding: 10px; /* Reduziert */
+            max-width: 150px; /* Reduziert von 300px auf 150px */
+            line-height: 1.6;
+            font-size: 0.9em; /* Schriftgröße angepasst */
+        }
+
+        .info-box h3 {
+            margin: 0 0 10px;
+            font-size: 16px; /* Reduziert */
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 12px; /* Reduziert */
+        }
+
+        .floating-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: black;
+            color: white;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .floating-button:hover {
+            transform: scale(1.05);
+        }
+
+        .route-details-popup {
+            display: none;
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translate(-50%, -10%);
+            width: 400px;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .route-details-popup h3 {
+            margin: 0 0 15px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .route-details-popup table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+
+        .route-details-popup th,
+        .route-details-popup td {
+            text-align: left;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .route-details-popup button {
+            width: 100%;
+            padding: 10px;
+            background-color: black;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .route-details-popup button:hover {
+            background-color: white;
+            color: black;
+        }
+
+        .route-details-popup #geocoder-container,
+        .route-details-popup #date-picker-container {
+            margin-bottom: 15px;
+        }
+
+        /* Zusätzliche CSS-Regeln, um das weiße Fenster mit X-Schließen zu entfernen */
+        .mapboxgl-popup {
+            background: none !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        .mapboxgl-popup-close-button {
+            display: none !important;
+        }
+
+        /* Neue CSS-Klasse für Pop-up-Inhalte */
+        .popup-content {
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 10px;
+            padding: 15px; /* Reduziert um 25% von 20px */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            font-size: 0.9em; /* Schriftgröße reduziert */
+        }
+
+        .popup-content h3 {
+            margin: 0 0 15px;
+            text-align: center;
+            text-transform: uppercase;
+            font-size: 16px; /* Reduziert */
+        }
+
+        .popup-content label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px; /* Reduziert */
+        }
+
+        .popup-content input[type="number"] {
+            width: 100%;
+            padding: 5px;
+            border-radius: 5px;
+            border: none;
+            margin-bottom: 10px;
+            font-size: 12px; /* Reduziert */
+        }
+
+        .popup-content button {
+            width: 100%;
+            padding: 8px; /* Reduziert */
+            background-color: black;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            margin-bottom: 10px;
+            font-size: 12px; /* Reduziert */
+        }
+
+        .popup-content button:hover {
+            background-color: white;
+            color: black;
+        }
+
+        /* Neue CSS-Klasse für Klick-Feedback */
+        .button-clicked {
+            background-color: white !important;
+            color: black !important;
+        }
+
+        /* Anpassungen für das Pop-up, um das weiße Feld zu entfernen */
+        .mapboxgl-popup-content {
+            background: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            border: none !important;
+        }
+
+        .mapboxgl-popup-tip {
+            display: none;
+        }
     </style>
+    <!-- Flatpickr JS für Datepicker -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
     <div id="map"></div>
 
+    <div class="info-box">
+        <h3>Routen-Details</h3>
+        <p id="route-customers">Kunden: 0</p>
+        <p id="route-distance">Distanz: 0 km</p>
+        <p id="route-time">Zeit: 0 Minuten</p>
+    </div>
+
+    <div class="floating-button" id="show-route-button">Route anzeigen</div>
+
+    <div class="route-details-popup" id="route-popup">
+        <h3>ROUTEN-DETAILS</h3>
+
+        <!-- Datepicker -->
+        <div id="date-picker-container">
+            <label for="planned-date">Geplantes Datum:</label>
+            <input type="text" id="planned-date" placeholder="Datum auswählen">
+        </div>
+
+        <!-- Abfahrtsadresse -->
+        <div id="departure-address-container">
+            <label for="departure-address">Abfahrtsadresse:</label>
+            <div id="departure-geocoder"></div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Kunde</th>
+                    <th>Ort</th>
+                    <th>Aufenthalt (Minuten)</th>
+                </tr>
+            </thead>
+            <tbody id="route-table-body"></tbody>
+        </table>
+        <button id="close-popup">Schließen</button>
+    </div>
+
     <script>
-        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY2w1ZHB4enR5MDNybzNqbW1rODJ6cWtlNiJ9.Fx-t6STHzxEwXo5syXVLCA';
 
         const map = new mapboxgl.Map({
             container: 'map',
@@ -50,70 +282,219 @@
             zoom: 5,
         });
 
-        let customerData = [];
+        const customerData = [];
+        const selectedCustomers = [];
+        const selectedPoints = [];
+        let startPoint = null;
+        let startMarker = null;
 
-        // SharePoint-Daten über REST-API laden
-        async function fetchSharePointData() {
-            try {
-                const response = await fetch(
-                    "https://aeroinspect.sharepoint.com/sites/AeroInspect/_api/web/lists/getbytitle('Kundendaten Energiekonzepte Deutschland')/items", 
-                    {
-                        method: "GET",
-                        headers: {
-                            "Accept": "application/json;odata=verbose"
-                        }
-                    }
-                );
-
-                const data = await response.json();
-                return data.d.results.map(item => ({
-                    id: item.ID,
-                    name: item.Title, // Anpassung an den Spaltennamen in der SharePoint-Liste
-                    coordinates: [
-                        parseFloat(item.Längengrad), // Spalte für Längengrad
-                        parseFloat(item.Breitengrad) // Spalte für Breitengrad
-                    ],
-                    visitDuration: 10 // Standardwert für Besuchsdauer
-                }));
-            } catch (error) {
-                console.error("Fehler beim Abrufen der Daten von SharePoint:", error);
-                return [];
-            }
+        // Generierung der Kundenkoordinaten
+        for (let i = 0; i < 50; i++) {
+            customerData.push({
+                id: i + 1,
+                name: `Kunde ${i + 1}`,
+                coordinates: [
+                    10 + (Math.random() - 0.5) * 5, // Längengrad zwischen 7.5 und 12.5
+                    50 + (Math.random() - 0.5) * 5  // Breitengrad zwischen 47.5 und 52.5
+                ],
+                visitDuration: 10, // Standardmäßig 10 Minuten
+            });
         }
 
-        async function initializeMap() {
-            customerData = await fetchSharePointData();
+        const bounds = new mapboxgl.LngLatBounds();
 
-            const bounds = new mapboxgl.LngLatBounds();
+        customerData.forEach((customer) => {
+            const markerElement = document.createElement('div');
+            markerElement.className = 'custom-marker';
 
-            customerData.forEach(customer => {
-                const markerElement = document.createElement('div');
-                markerElement.className = 'custom-marker';
+            const popupContent = document.createElement('div');
+            popupContent.className = 'popup-content';
 
-                const popupContent = document.createElement('div');
-                popupContent.className = 'popup-content';
+            popupContent.innerHTML = `
+                <h3>${customer.name}</h3>
+                <label for="visit-duration-${customer.id}">Aufenthaltsdauer (Minuten):</label>
+                <input type="number" id="visit-duration-${customer.id}" min="0" value="${customer.visitDuration}" 
+                       onchange="updateVisitDuration(${customer.id}, this.value)">
+                <button class="add-to-route-btn" onclick="addToRoute(${customer.id})">
+                    Zur Route hinzufügen
+                </button>
+                <button onclick="closePopup()">
+                    Schließen
+                </button>
+            `;
 
-                popupContent.innerHTML = `
-                    <h3>${customer.name}</h3>
-                    <label for="visit-duration-${customer.id}">Aufenthaltsdauer (Minuten):</label>
-                    <input type="number" id="visit-duration-${customer.id}" min="0" value="${customer.visitDuration}">
-                `;
-
-                const popup = new mapboxgl.Popup();
-                popup.setDOMContent(popupContent);
-
-                new mapboxgl.Marker({ element: markerElement })
-                    .setLngLat(customer.coordinates)
-                    .setPopup(popup)
-                    .addTo(map);
-
-                bounds.extend(customer.coordinates);
+            // Klick-Feedback für Buttons im Popup
+            const buttonsInPopup = popupContent.querySelectorAll('button');
+            buttonsInPopup.forEach(button => {
+                button.addEventListener('click', buttonClickFeedback);
             });
 
-            map.fitBounds(bounds, { padding: 50 });
+            const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false })
+                .setDOMContent(popupContent);
+
+            new mapboxgl.Marker({ element: markerElement })
+                .setLngLat(customer.coordinates)
+                .setPopup(popup)
+                .addTo(map);
+
+            bounds.extend(customer.coordinates);
+        });
+
+        // Karte auf Kundenstandorte zentrieren
+        map.fitBounds(bounds, { padding: 50 });
+
+        window.updateVisitDuration = function (customerId, duration) {
+            const customer = customerData.find((c) => c.id === customerId);
+            if (customer) {
+                customer.visitDuration = parseInt(duration, 10) || 0;
+                if (selectedCustomers.includes(customer)) {
+                    drawRoute();
+                }
+            }
+        };
+
+        window.addToRoute = function (customerId) {
+            const customer = customerData.find((c) => c.id === customerId);
+            if (!selectedCustomers.includes(customer)) {
+                selectedCustomers.push(customer);
+                selectedPoints.push(customer.coordinates);
+                drawRoute();
+                closePopup();
+            }
+        };
+
+        function updateRouteDetails(totalDistance = 0, totalDuration = 0) {
+            const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
+
+            const distanceInKm = (totalDistance / 1000).toFixed(2); // in Kilometern
+            const durationInMinutes = Math.round(totalDuration / 60) + totalVisitTime; // in Minuten
+
+            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
+            document.getElementById('route-distance').innerText = `Distanz: ${distanceInKm} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${durationInMinutes} Minuten`;
         }
 
-        initializeMap();
+        function drawRoute() {
+            const allPoints = startPoint ? [startPoint, ...selectedPoints] : selectedPoints;
+            if (allPoints.length < 2) {
+                updateRouteDetails(); // Reset der Routen-Details
+                if (map.getSource('route')) {
+                    map.removeLayer('route');
+                    map.removeSource('route');
+                }
+                return;
+            }
+
+            const coordinates = allPoints.map((point) => point.join(',')).join(';');
+            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+
+            fetch(query)
+                .then((response) => response.json())
+                .then((data) => {
+                    if (!data.trips || !data.trips[0]) {
+                        console.error('Keine Route gefunden:', data);
+                        return;
+                    }
+                    const routeGeoJSON = {
+                        type: 'Feature',
+                        geometry: data.trips[0].geometry,
+                    };
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(routeGeoJSON);
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': 'black', 'line-width': 4 },
+                        });
+                    }
+
+                    // Gesamtdistanz und -dauer erhalten
+                    const totalDistance = data.trips[0].distance; // in Metern
+                    const totalDuration = data.trips[0].duration; // in Sekunden
+
+                    // Routen-Details aktualisieren
+                    updateRouteDetails(totalDistance, totalDuration);
+                })
+                .catch((error) => {
+                    console.error('Fehler beim Abrufen der Route:', error);
+                });
+        }
+
+        function closePopup() {
+            const activePopup = document.querySelector('.mapboxgl-popup');
+            if (activePopup) activePopup.remove();
+        }
+
+        function buttonClickFeedback(event) {
+            const button = event.target;
+            button.classList.add('button-clicked');
+            setTimeout(() => {
+                button.classList.remove('button-clicked');
+            }, 200); // Rückkehr zum Original nach 200 ms
+        }
+
+        // Klick-Feedback für statische Buttons
+        document.getElementById('show-route-button').addEventListener('click', buttonClickFeedback);
+        document.getElementById('close-popup').addEventListener('click', function(event) {
+            buttonClickFeedback(event);
+            document.getElementById('route-popup').style.display = 'none';
+        });
+
+        document.getElementById('show-route-button').addEventListener('click', () => {
+            const popup = document.getElementById('route-popup');
+            const tableBody = document.getElementById('route-table-body');
+            tableBody.innerHTML = selectedCustomers
+                .map(
+                    (customer, index) => `
+                <tr>
+                    <td>${index + 1}. ${customer.name}</td>
+                    <td>${customer.coordinates.join(', ')}</td>
+                    <td>${customer.visitDuration} Minuten</td>
+                </tr>
+            `
+                )
+                .join('');
+            popup.style.display = 'block';
+        });
+
+        // Datepicker initialisieren
+        flatpickr("#planned-date", {
+            dateFormat: "d.m.Y",
+            minDate: "today",
+        });
+
+        // Abfahrtsadresse Geocoder
+        const departureGeocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: 'Abfahrtsadresse eingeben...',
+        });
+
+        departureGeocoder.on('result', (e) => {
+            startPoint = e.result.geometry.coordinates;
+
+            // Entferne alten Marker
+            if (startMarker) {
+                startMarker.remove();
+            }
+
+            // Füge neuen Marker hinzu
+            const startMarkerElement = document.createElement('div');
+            startMarkerElement.className = 'house-marker';
+
+            startMarker = new mapboxgl.Marker({ element: startMarkerElement })
+                .setLngLat(startPoint)
+                .addTo(map);
+
+            drawRoute();
+        });
+
+        document.getElementById('departure-geocoder').appendChild(departureGeocoder.onAdd(map));
     </script>
 </body>
 </html>
