@@ -53,7 +53,7 @@
 </head>
 <body>
     <h1>Kundendaten Tool</h1>
-    <button id="login-button">Login</button>
+    <button id="login-button">Microsoft Login</button>
     <button id="fetch-data-button" disabled>Load Kundendaten</button>
     <table id="data-table" style="display:none;">
         <thead>
@@ -69,11 +69,12 @@
     </table>
 
     <script>
+        // MSAL Konfiguration
         const msalConfig = {
             auth: {
-                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // Ersetzen Sie diesen Wert
-                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Ersetzen Sie diesen Wert
-                redirectUri: window.location.origin
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // Ersetze durch deine App-Client-ID
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Ersetze durch deine Tenant-ID
+                redirectUri: window.location.origin // Aktuelle URL als Redirect
             },
             cache: {
                 cacheLocation: "localStorage",
@@ -82,18 +83,22 @@
         };
 
         const loginRequest = {
-            scopes: ["Sites.Read.All"]
+            scopes: ["Sites.Read.All"] // Berechtigung für den Zugriff auf SharePoint
         };
 
+        // Graph API Endpoint für deine Liste
         const graphEndpoint = "https://graph.microsoft.com/v1.0/sites/aeroinspect.sharepoint.com:/sites/AeroInspect/lists/BADA209A0-A9EB-4446-8371-B63FEC42FE8D/items?expand=fields";
 
+        // MSAL-Instanz erstellen
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
+        // Login-Button Funktion
         document.getElementById("login-button").addEventListener("click", async () => {
             try {
+                // Prüfen, ob ein Benutzerkonto verfügbar ist
                 const account = msalInstance.getAllAccounts()[0];
                 if (!account) {
-                    await msalInstance.loginPopup(loginRequest);
+                    await msalInstance.loginPopup(loginRequest); // Popup-Login, wenn kein Konto vorhanden
                 }
                 document.getElementById("fetch-data-button").disabled = false;
                 alert("Erfolgreich angemeldet!");
@@ -102,8 +107,10 @@
             }
         });
 
+        // Daten abrufen
         document.getElementById("fetch-data-button").addEventListener("click", async () => {
             try {
+                // Token abrufen
                 const account = msalInstance.getAllAccounts()[0];
                 const tokenResponse = await msalInstance.acquireTokenSilent({
                     ...loginRequest,
@@ -111,6 +118,8 @@
                 });
 
                 const token = tokenResponse.accessToken;
+
+                // Daten von der Graph API abrufen
                 const response = await fetch(graphEndpoint, {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -128,6 +137,7 @@
             }
         });
 
+        // Tabelle mit Daten füllen
         function populateTable(data) {
             const table = document.getElementById("data-table");
             const tbody = table.querySelector("tbody");
