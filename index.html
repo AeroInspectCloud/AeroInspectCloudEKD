@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AERO INSPECT - MAP</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.min.js"></script>
+    <script src="https://unpkg.com/@pnp/sp@3.0.11/dist/pnpjs.es5.umd.min.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0.mapbox-gl.css" rel="stylesheet">
-    <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-geocoder/v5.0.1/mapbox-gl-geocoder.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* Style bleibt unverändert */
         body {
             margin: 0;
             font-family: 'Roboto', sans-serif;
@@ -136,16 +139,13 @@
 </head>
 <body>
     <div id="map"></div>
-
     <div class="info-box">
         <h3>Routen-Details</h3>
         <p id="route-customers">Kunden: 0</p>
         <p id="route-distance">Distanz: 0 km</p>
         <p id="route-time">Zeit: 0 Minuten</p>
     </div>
-
     <div class="floating-button" id="show-route-button">Route anzeigen</div>
-
     <div class="route-details-popup" id="route-popup">
         <h3>ROUTEN-DETAILS</h3>
         <div id="geocoder-container"></div>
@@ -161,163 +161,196 @@
         </table>
         <button id="close-popup">Schließen</button>
     </div>
+    <script>
+        // MSAL Konfiguration
+        const msalConfig = {
+            auth: {
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
+                redirectUri: window.location.origin,
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: false,
+            },
+        };
 
-   <script src="https://unpkg.com/@pnp/sp@3.0.11/dist/pnpjs.es5.umd.min.js"></script>
-<script>
-    mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
+        const loginRequest = {
+            scopes: ["Sites.Read.All"],
+        };
 
-    const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
-    const listName = "Kundendaten Energiekonzepte Deutschland"; // Ersetzen Sie dies durch den Namen Ihrer SharePoint-Liste
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-    // PnP.js Setup
-    const { sp } = window.pnp;
-    sp.setup({
-        sp: {
-            baseUrl: siteUrl,
-        },
-    });
-
-    const map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/light-v10',
-        center: [10.0, 50.0],
-        zoom: 5,
-    });
-
-    const customerData = [];
-    const selectedCustomers = [];
-    const selectedPoints = [];
-    let startPoint = null;
-
-    async function loadCustomerData() {
-        try {
-            const items = await sp.web.lists.getByTitle(listName).items.getAll();
-
-            // SharePoint-Daten in customerData laden
-            items.forEach((item, index) => {
-                customerData.push({
-                    id: index + 1,
-                    name: `${item.Vorname} ${item.Nachname}`,
-                    coordinates: [parseFloat(item.Längengrad), parseFloat(item.Breitengrad)],
-                    visitDuration: 10, // Standardwert für Aufenthalt in Minuten
-                });
-            });
-
-            // Marker auf die Karte setzen
-            customerData.forEach((customer) => {
-                const markerElement = document.createElement('div');
-                markerElement.className = 'custom-marker';
-
-                const popup = new mapboxgl.Popup().setHTML(`
-                    <h3>${customer.name}</h3>
-                    <p>Aufenthaltsdauer (Minuten): ${customer.visitDuration}</p>
-                    <button onclick="updateVisitDuration(${customer.id})">Ändern</button>
-                    <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
-                `);
-
-                new mapboxgl.Marker({ element: markerElement })
-                    .setLngLat(customer.coordinates)
-                    .setPopup(popup)
-                    .addTo(map);
-            });
-        } catch (error) {
-            console.error("Fehler beim Abrufen der Daten aus der SharePoint-Liste:", error);
-        }
-    }
-
-    window.updateVisitDuration = function (customerId) {
-        const customer = customerData.find((c) => c.id === customerId);
-        const newDuration = prompt(`Neue Aufenthaltsdauer für ${customer.name} (Minuten):`, customer.visitDuration);
-        if (newDuration !== null) {
-            customer.visitDuration = parseInt(newDuration, 10) || 0;
-            updateRouteDetails();
-        }
-    };
-
-    window.addToRoute = function (customerId) {
-        const customer = customerData.find((c) => c.id === customerId);
-        if (!selectedCustomers.includes(customer)) {
-            selectedCustomers.push(customer);
-            selectedPoints.push(customer.coordinates);
-            updateRouteDetails();
-            drawRoute();
-        }
-    };
-
-    function updateRouteDetails() {
-        const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
-        document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
-        document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
-        document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10 + totalVisitTime} Minuten`;
-    }
-
-    function drawRoute() {
-        const allPoints = startPoint ? [startPoint, ...selectedPoints] : selectedPoints;
-        if (allPoints.length < 2) return;
-
-        const coordinates = allPoints.map((point) => point.join(',')).join(';');
-        const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
-
-        fetch(query)
-            .then((response) => response.json())
-            .then((data) => {
-                const routeGeoJSON = {
-                    type: 'Feature',
-                    geometry: data.trips[0].geometry,
-                };
-
-                if (map.getSource('route')) {
-                    map.getSource('route').setData(routeGeoJSON);
-                } else {
-                    map.addSource('route', { type: 'geojson', data: routeGeoJSON });
-                    map.addLayer({
-                        id: 'route',
-                        type: 'line',
-                        source: 'route',
-                        layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: { 'line-color': 'black', 'line-width': 4 },
-                    });
+        async function getAccessToken() {
+            try {
+                const account = msalInstance.getAllAccounts()[0];
+                if (!account) {
+                    const loginResponse = await msalInstance.loginPopup(loginRequest);
+                    return loginResponse.accessToken;
                 }
-            });
-    }
 
-    document.getElementById('show-route-button').addEventListener('click', () => {
-        const popup = document.getElementById('route-popup');
-        const tableBody = document.getElementById('route-table-body');
-        tableBody.innerHTML = selectedCustomers
-            .map(
-                (customer, index) => `
-                <tr>
-                    <td>${index + 1}. ${customer.name}</td>
-                    <td>${customer.coordinates.join(', ')}</td>
-                    <td>${customer.visitDuration} Minuten</td>
-                </tr>
-            `
-            )
-            .join('');
-        popup.style.display = 'block';
-    });
+                const tokenResponse = await msalInstance.acquireTokenSilent({
+                    ...loginRequest,
+                    account,
+                });
+                return tokenResponse.accessToken;
+            } catch (error) {
+                if (error instanceof msal.InteractionRequiredAuthError) {
+                    const tokenResponse = await msalInstance.acquireTokenPopup(loginRequest);
+                    return tokenResponse.accessToken;
+                } else {
+                    throw error;
+                }
+            }
+        }
 
-    document.getElementById('close-popup').addEventListener('click', () => {
-        document.getElementById('route-popup').style.display = 'none';
-    });
+        // Mapbox-Konfiguration
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            center: [10.0, 50.0],
+            zoom: 5,
+        });
 
-    const geocoder = new MapboxGeocoder({
-        accessToken: mapboxgl.accessToken,
-        mapboxgl: mapboxgl,
-        placeholder: 'Abfahrtsstandort eingeben...',
-    });
+        const customerData = [];
+        const selectedCustomers = [];
+        const selectedPoints = [];
+        let startPoint = null;
 
-    geocoder.on('result', (e) => {
-        startPoint = e.result.geometry.coordinates;
-        drawRoute();
-    });
+        // Laden der Kundendaten
+        async function loadCustomerData() {
+            try {
+                const token = await getAccessToken();
+                sp.setup({
+                    sp: {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    },
+                });
 
-    document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
+                const items = await sp.web.lists.getByTitle("Kundendaten Energiekonzepte Deutschland").items.getAll();
 
-    // Initiale Funktion zum Laden der Daten
-    loadCustomerData();
-</script>
+                items.forEach((item, index) => {
+                    customerData.push({
+                        id: index + 1,
+                        name: `${item.Vorname} ${item.Nachname}`,
+                        coordinates: [parseFloat(item.Längengrad), parseFloat(item.Breitengrad)],
+                        visitDuration: 10,
+                    });
+                });
 
+                customerData.forEach((customer) => {
+                    const markerElement = document.createElement('div');
+                    markerElement.className = 'custom-marker';
+
+                    const popup = new mapboxgl.Popup().setHTML(`
+                        <h3>${customer.name}</h3>
+                        <p>Aufenthaltsdauer (Minuten): ${customer.visitDuration}</p>
+                        <button onclick="updateVisitDuration(${customer.id})">Ändern</button>
+                        <button onclick="addToRoute(${customer.id})">Zur Route hinzufügen</button>
+                    `);
+
+                    new mapboxgl.Marker({ element: markerElement })
+                        .setLngLat(customer.coordinates)
+                        .setPopup(popup)
+                        .addTo(map);
+                });
+            } catch (error) {
+                console.error("Fehler beim Abrufen der SharePoint-Daten:", error);
+            }
+        }
+
+        // Funktionen zur Kartenbearbeitung
+        function updateVisitDuration(customerId) {
+            const customer = customerData.find((c) => c.id === customerId);
+            const newDuration = prompt(`Neue Aufenthaltsdauer für ${customer.name} (Minuten):`, customer.visitDuration);
+            if (newDuration !== null) {
+                customer.visitDuration = parseInt(newDuration, 10) || 0;
+                updateRouteDetails();
+            }
+        }
+
+        function addToRoute(customerId) {
+            const customer = customerData.find((c) => c.id === customerId);
+            if (!selectedCustomers.includes(customer)) {
+                selectedCustomers.push(customer);
+                selectedPoints.push(customer.coordinates);
+                updateRouteDetails();
+                drawRoute();
+            }
+        }
+
+        function updateRouteDetails() {
+            const totalVisitTime = selectedCustomers.reduce((sum, customer) => sum + customer.visitDuration, 0);
+            document.getElementById('route-customers').innerText = `Kunden: ${selectedCustomers.length}`;
+            document.getElementById('route-distance').innerText = `Distanz: ${selectedCustomers.length * 5} km`;
+            document.getElementById('route-time').innerText = `Zeit: ${selectedCustomers.length * 10 + totalVisitTime} Minuten`;
+        }
+
+        function drawRoute() {
+            const allPoints = startPoint ? [startPoint, ...selectedPoints] : selectedPoints;
+            if (allPoints.length < 2) return;
+
+            const coordinates = allPoints.map((point) => point.join(',')).join(';');
+            const query = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&overview=full&access_token=${mapboxgl.accessToken}`;
+
+            fetch(query)
+                .then((response) => response.json())
+                .then((data) => {
+                    const routeGeoJSON = { type: 'Feature', geometry: data.trips[0].geometry };
+
+                    if (map.getSource('route')) {
+                        map.getSource('route').setData(routeGeoJSON);
+                    } else {
+                        map.addSource('route', { type: 'geojson', data: routeGeoJSON });
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': 'black', 'line-width': 4 },
+                        });
+                    }
+                });
+        }
+
+        const geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            placeholder: 'Abfahrtsstandort eingeben...',
+        });
+
+        geocoder.on('result', (e) => {
+            startPoint = e.result.geometry.coordinates;
+            drawRoute();
+        });
+
+        document.getElementById('geocoder-container').appendChild(geocoder.onAdd(map));
+        document.getElementById('show-route-button').addEventListener('click', () => {
+            const popup = document.getElementById('route-popup');
+            const tableBody = document.getElementById('route-table-body');
+            tableBody.innerHTML = selectedCustomers
+                .map(
+                    (customer, index) => `
+                    <tr>
+                        <td>${index + 1}. ${customer.name}</td>
+                        <td>${customer.coordinates.join(', ')}</td>
+                        <td>${customer.visitDuration} Minuten</td>
+                    </tr>
+                `
+                )
+                .join('');
+            popup.style.display = 'block';
+        });
+
+        document.getElementById('close-popup').addEventListener('click', () => {
+            document.getElementById('route-popup').style.display = 'none';
+        });
+
+        // Kundendaten laden
+        loadCustomerData();
+    </script>
 </body>
 </html>
