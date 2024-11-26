@@ -74,48 +74,67 @@
             auth: {
                 clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // App-Client-ID
                 authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Tenant-ID
-                redirectUri: window.location.origin
+                redirectUri: window.location.origin // Die aktuelle URL
             },
             cache: {
-                cacheLocation: "localStorage",
-                storeAuthStateInCookie: false
+                cacheLocation: "localStorage", // Token wird im lokalen Speicher abgelegt
+                storeAuthStateInCookie: false // Keine Cookies verwenden
             }
         };
 
         const loginRequest = {
-            scopes: ["Sites.Read.All"] // Berechtigung für Zugriff auf SharePoint
+            scopes: ["Sites.Read.All"] // Berechtigungen für den SharePoint-Zugriff
         };
 
-        // Graph API Endpoint
-        const graphEndpoint = "https://graph.microsoft.com/v1.0/sites/aeroinspect.sharepoint.com:/sites/AeroInspect/lists/{ADA209A0-A9EB-4446-8371-B63FEC42FE8D}/items?expand=fields";
+        // Graph API Endpoint für die SharePoint-Liste
+        const graphEndpoint = "https://graph.microsoft.com/v1.0/sites/aeroinspect.sharepoint.com:/sites/AeroInspect/lists/ADA209A0-A9EB-4446-8371-B63FEC42FE8D/items?expand=fields";
 
-        // MSAL-Instanz
+        // MSAL-Instanz erstellen
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
+        // Microsoft Login
         document.getElementById("login-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
                 if (!account) {
-                    await msalInstance.loginPopup(loginRequest);
+                    await msalInstance.loginPopup(loginRequest); // Popup für Login
                 }
                 document.getElementById("fetch-data-button").disabled = false;
                 alert("Erfolgreich angemeldet!");
             } catch (error) {
                 console.error("Login-Fehler:", error);
+                alert("Login fehlgeschlagen. Bitte versuchen Sie es erneut.");
             }
         });
 
+        // Daten aus der SharePoint-Liste abrufen
         document.getElementById("fetch-data-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
-                const tokenResponse = await msalInstance.acquireTokenSilent({
-                    ...loginRequest,
-                    account
-                });
+                let token;
 
-                const token = tokenResponse.accessToken;
+                // Token-Abruf mit Fallback auf Popup
+                try {
+                    const tokenResponse = await msalInstance.acquireTokenSilent({
+                        ...loginRequest,
+                        account
+                    });
+                    token = tokenResponse.accessToken;
+                } catch (error) {
+                    if (error instanceof msal.InteractionRequiredAuthError) {
+                        console.log("Silent Token-Abruf fehlgeschlagen. Popup wird verwendet.");
+                        const tokenResponse = await msalInstance.acquireTokenPopup({
+                            ...loginRequest
+                        });
+                        token = tokenResponse.accessToken;
+                    } else {
+                        throw error;
+                    }
+                }
 
-                // Abruf der SharePoint-Daten
+                console.log("Token erhalten:", token);
+
+                // SharePoint-Daten abrufen
                 const response = await fetch(graphEndpoint, {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -127,16 +146,19 @@
                 }
 
                 const data = await response.json();
+                console.log("Kundendaten:", data);
                 populateTable(data.value);
             } catch (error) {
                 console.error("Fehler beim Abrufen der Kundendaten:", error);
+                alert("Fehler beim Abrufen der Daten. Bitte versuchen Sie es erneut.");
             }
         });
 
+        // Tabelle mit abgerufenen Daten füllen
         function populateTable(data) {
             const table = document.getElementById("data-table");
             const tbody = table.querySelector("tbody");
-            tbody.innerHTML = ""; // Alte Daten löschen
+            tbody.innerHTML = ""; // Vorherige Daten entfernen
 
             data.forEach(item => {
                 const row = document.createElement("tr");
