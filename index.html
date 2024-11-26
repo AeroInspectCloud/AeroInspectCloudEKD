@@ -167,6 +167,10 @@
 
                 const data = await response.json();
                 const customerData = data.d.results;
+
+                // Hier wird die Ausgabe der API-Daten in der Konsole protokolliert
+                console.log("API-Daten:", customerData);
+                
                 displayMarkers(customerData);
                 populateTable(customerData);
             } catch (error) {
