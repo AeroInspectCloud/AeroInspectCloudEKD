@@ -175,40 +175,19 @@
             }
         });
 
-        // Marker auf der Karte anzeigen
-        function displayMarkers(customers) {
-            customers.forEach(customer => {
-                const markerElement = document.createElement('div');
-                markerElement.className = 'custom-marker';
-
-                const popup = new mapboxgl.Popup().setHTML(`
-                    <h3>${customer.Vorname} ${customer.Nachname}</h3>
-                    <p>ID: ${customer.Id}</p>
-                `);
-
-                const marker = new mapboxgl.Marker({ element: markerElement })
-                    .setLngLat([parseFloat(customer.Längengrad), parseFloat(customer.Breitengrad)])
-                    .setPopup(popup)
-                    .addTo(map);
-
-                customerMarkers.push(marker);
-            });
-        }
-
         function displayMarkers(customers) {
     customers.forEach(customer => {
-    // Debugging-Logs für Breitengrad und Längengrad
-    console.log("Verarbeite Kunde:", customer.Vorname, customer.Nachname);
-    console.log("Längengrad:", customer.Längengrad, "Breitengrad:", customer.Breitengrad);
+        console.log("Verarbeite Kunde:", customer.Vorname, customer.Nachname);
+        console.log("Längengrad:", customer.Längengrad, "Breitengrad:", customer.Breitengrad);
 
-    // Werte umwandeln und validieren
-    const lng = parseFloat(customer.Längengrad?.replace(',', '.').trim());
-    const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
+        // Werte umwandeln und validieren
+        const lng = parseFloat(customer.Längengrad?.replace(',', '.').trim());
+        const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
 
-    if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-        console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
-        return; // Überspringt ungültige Werte
-    }
+        if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+            console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
+            return; // Überspringe ungültige Werte
+        }
 
         // Marker-Element erstellen
         const markerElement = document.createElement('div');
@@ -225,9 +204,9 @@
             .setLngLat([lng, lat])
             .setPopup(popup)
             .addTo(map);
-
     });
 }
+
 
 
 
