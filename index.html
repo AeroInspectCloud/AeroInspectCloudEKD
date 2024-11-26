@@ -197,15 +197,18 @@
 
         function displayMarkers(customers) {
     customers.forEach(customer => {
-        // Koordinaten konvertieren und prüfen
-        const lng = parseFloat(customer.Längengrad?.replace(',', '.')); // Längengrad
-        const lat = parseFloat(customer.Breitengrad?.replace(',', '.')); // Breitengrad
+    // Debugging-Logs für Breitengrad und Längengrad
+    console.log("Verarbeite Kunde:", customer.Vorname, customer.Nachname);
+    console.log("Längengrad:", customer.Längengrad, "Breitengrad:", customer.Breitengrad);
 
-        // Überprüfung auf gültige Koordinaten
-        if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-            console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
-            return; // Überspringt ungültige Einträge
-        }
+    // Werte umwandeln und validieren
+    const lng = parseFloat(customer.Längengrad?.replace(',', '.').trim());
+    const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
+
+    if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
+        return; // Überspringt ungültige Werte
+    }
 
         // Marker-Element erstellen
         const markerElement = document.createElement('div');
