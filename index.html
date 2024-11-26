@@ -3,46 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kundendaten</title>
+    <title>AERO INSPECT - Kundendaten</title>
     <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <style>
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f9f9f9;
+            background-color: #f4f4f4;
         }
 
-        h1 {
-            text-align: center;
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
         }
 
         #login-button, #fetch-data-button {
-            display: inline-block;
+            position: absolute;
+            top: 10px;
+            left: 10px;
             padding: 10px 20px;
-            font-size: 16px;
-            margin: 10px 0;
+            font-size: 14px;
             border: none;
             background-color: #0078d4;
             color: white;
             border-radius: 5px;
             cursor: pointer;
+            z-index: 10;
         }
 
-        #login-button:hover, #fetch-data-button:hover {
-            background-color: #005a9e;
+        #fetch-data-button {
+            margin-top: 50px;
         }
 
         #data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
+            position: absolute;
+            top: 120px;
+            left: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 10;
         }
 
         #data-table th, #data-table td {
-            padding: 12px;
-            text-align: left;
-            border: 1px solid #ddd;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
         }
 
         #data-table th {
@@ -52,53 +66,62 @@
     </style>
 </head>
 <body>
-    <h1>Kundendaten aus SharePoint</h1>
-    <button id="login-button">Microsoft Login</button>
+    <button id="login-button">Login</button>
     <button id="fetch-data-button" disabled>Load Kundendaten</button>
-    <table id="data-table" style="display:none;">
+    <div id="map"></div>
+    <table id="data-table">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Vorname</th>
                 <th>Nachname</th>
-                <th>Längengrad</th>
-                <th>Breitengrad</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
     <script>
+        // Mapbox Access Token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
+
         // MSAL Konfiguration
         const msalConfig = {
             auth: {
-                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // App-Client-ID
-                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Tenant-ID
-                redirectUri: window.location.origin // Die aktuelle URL
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
+                redirectUri: window.location.origin,
             },
             cache: {
-                cacheLocation: "localStorage", // Token wird im lokalen Speicher abgelegt
-                storeAuthStateInCookie: false // Keine Cookies verwenden
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: false,
             }
         };
 
         const loginRequest = {
-            scopes: ["https://aeroinspect.sharepoint.com/.default"] // SharePoint REST API Zugriff
+            scopes: ["https://aeroinspect.sharepoint.com/.default"]
         };
 
-        // SharePoint REST API Endpoint
         const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
-        // MSAL-Instanz erstellen
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-        // Microsoft Login
+        // Mapbox-Initialisierung
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            center: [10.0, 50.0],
+            zoom: 5,
+        });
+
+        const customerMarkers = [];
+
+        // Login-Button
         document.getElementById("login-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
                 if (!account) {
-                    await msalInstance.loginPopup(loginRequest); // Popup für Login
+                    await msalInstance.loginPopup(loginRequest);
                 }
                 document.getElementById("fetch-data-button").disabled = false;
                 alert("Erfolgreich angemeldet!");
@@ -108,24 +131,22 @@
             }
         });
 
-        // Daten aus der SharePoint-Liste abrufen
+        // Kundendaten abrufen
         document.getElementById("fetch-data-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
                 let token;
 
-                // Token-Abruf mit Fallback auf Popup
                 try {
                     const tokenResponse = await msalInstance.acquireTokenSilent({
                         ...loginRequest,
-                        account
+                        account,
                     });
                     token = tokenResponse.accessToken;
                 } catch (error) {
                     if (error instanceof msal.InteractionRequiredAuthError) {
-                        console.log("Silent Token-Abruf fehlgeschlagen. Popup wird verwendet.");
                         const tokenResponse = await msalInstance.acquireTokenPopup({
-                            ...loginRequest
+                            ...loginRequest,
                         });
                         token = tokenResponse.accessToken;
                     } else {
@@ -133,14 +154,11 @@
                     }
                 }
 
-                console.log("Token erhalten:", token);
-
-                // SharePoint-Daten abrufen
                 const response = await fetch(listEndpoint, {
                     headers: {
                         Authorization: `Bearer ${token}`,
-                        Accept: "application/json;odata=verbose"
-                    }
+                        Accept: "application/json;odata=verbose",
+                    },
                 });
 
                 if (!response.ok) {
@@ -148,33 +166,52 @@
                 }
 
                 const data = await response.json();
-                console.log("Kundendaten:", data.d.results);
-                populateTable(data.d.results);
+                const customerData = data.d.results;
+                displayMarkers(customerData);
+                populateTable(customerData);
             } catch (error) {
-                console.error("Fehler beim Abrufen der Kundendaten:", error);
+                console.error("Fehler beim Abrufen der Daten:", error);
                 alert("Fehler beim Abrufen der Daten. Bitte versuchen Sie es erneut.");
             }
         });
 
-        // Tabelle mit abgerufenen Daten füllen
-        function populateTable(data) {
+        // Marker auf der Karte anzeigen
+        function displayMarkers(customers) {
+            customers.forEach(customer => {
+                const markerElement = document.createElement('div');
+                markerElement.className = 'custom-marker';
+
+                const popup = new mapboxgl.Popup().setHTML(`
+                    <h3>${customer.Vorname} ${customer.Nachname}</h3>
+                    <p>ID: ${customer.Id}</p>
+                `);
+
+                const marker = new mapboxgl.Marker({ element: markerElement })
+                    .setLngLat([parseFloat(customer.Längengrad), parseFloat(customer.Breitengrad)])
+                    .setPopup(popup)
+                    .addTo(map);
+
+                customerMarkers.push(marker);
+            });
+        }
+
+        // Tabelle mit Kundendaten füllen
+        function populateTable(customers) {
             const table = document.getElementById("data-table");
             const tbody = table.querySelector("tbody");
-            tbody.innerHTML = ""; // Vorherige Daten entfernen
+            tbody.innerHTML = "";
 
-            data.forEach(item => {
+            customers.forEach(customer => {
                 const row = document.createElement("tr");
                 row.innerHTML = `
-                    <td>${item.Id}</td>
-                    <td>${item.Vorname || "-"}</td>
-                    <td>${item.Nachname || "-"}</td>
-                    <td>${item.Längengrad || "-"}</td>
-                    <td>${item.Breitengrad || "-"}</td>
+                    <td>${customer.Id}</td>
+                    <td>${customer.Vorname || "-"}</td>
+                    <td>${customer.Nachname || "-"}</td>
                 `;
                 tbody.appendChild(row);
             });
 
-            table.style.display = "table";
+            table.style.display = "block";
         }
     </script>
 </body>
