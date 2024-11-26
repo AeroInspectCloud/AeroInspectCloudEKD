@@ -182,10 +182,10 @@
         function displayMarkers(customers) {
     customers.forEach(customer => {
         console.log("Verarbeite Kunde:", customer.Vorname, customer.Nachname);
-        console.log("L_x00e4_ngengrad:", customer.Langengrad, "Breitengrad:", customer.Breitengrad);
+        console.log("L_x00e4_ngengrad:", customer.L_x00e4_ngengrad, "Breitengrad:", customer.Breitengrad);
 
         // Werte umwandeln und validieren
-        const lng = parseFloat(customer.Langengrad?.replace(',', '.').trim());
+        const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.').trim());
         const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
 
         if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
@@ -226,7 +226,7 @@
             <td>${customer.Id}</td>
             <td>${customer.Vorname || "-"}</td>
             <td>${customer.Nachname || "-"}</td>
-            <td>${customer.Langengrad || "-"}</td>
+            <td>${customer.L_x00e4_ngengrad || "-"}</td>
             <td>${customer.Breitengrad || "-"}</td>
         `;
         tbody.appendChild(row);
