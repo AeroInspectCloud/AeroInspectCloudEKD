@@ -197,9 +197,10 @@
 
         function displayMarkers(customers) {
     customers.forEach(customer => {
-        // Textkoordinaten in Zahlen umwandeln
-        const lng = parseFloat(customer.Längengrad?.replace(',', '.')); // Ersetzt Komma durch Punkt
-        const lat = parseFloat(customer.Breitengrad?.replace(',', '.')); // Ersetzt Komma durch Punkt
+       // Koordinaten als Dezimalzahlen konvertieren
+        const lng = parseFloat(customer.Längengrad?.replace(',', '.')); // Längengrad
+        const lat = parseFloat(customer.Breitengrad?.replace(',', '.')); // Breitengrad
+
 
         // Überprüfung auf gültige Koordinaten
         if (isNaN(lng) || isNaN(lat)) {
