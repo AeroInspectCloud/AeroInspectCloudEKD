@@ -222,12 +222,6 @@
             .setLngLat([lng, lat])
             .setPopup(popup)
             .addTo(map);
-// Ausgabe Konsole
-        const data = await response.json();
-        console.log("Kundendaten aus SharePoint:", data.d.results); // Debugging der Rohdaten
-        const customerData = data.d.results;
-        displayMarkers(customerData);
-        populateTable(customerData);
 
     });
 }
