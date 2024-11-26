@@ -182,7 +182,7 @@
         function displayMarkers(customers) {
     customers.forEach(customer => {
         console.log("Verarbeite Kunde:", customer.Vorname, customer.Nachname);
-        console.log("Langengrad:", customer.Langengrad, "Breitengrad:", customer.Breitengrad);
+        console.log("L_x00e4_ngengrad:", customer.Langengrad, "Breitengrad:", customer.Breitengrad);
 
         // Werte umwandeln und validieren
         const lng = parseFloat(customer.Langengrad?.replace(',', '.').trim());
