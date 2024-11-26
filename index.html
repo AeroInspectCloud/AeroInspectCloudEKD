@@ -83,11 +83,12 @@
         };
 
         const loginRequest = {
-            scopes: ["Sites.Read.All"] // Berechtigungen für den SharePoint-Zugriff
+            scopes: ["https://aeroinspect.sharepoint.com/.default"] // SharePoint REST API Zugriff
         };
 
-        // Graph API Endpoint für die SharePoint-Liste
-        const graphEndpoint = "https://graph.microsoft.com/v1.0/sites/aeroinspect.sharepoint.com:/sites/AeroInspect/lists/ADA209A0-A9EB-4446-8371-B63FEC42FE8D/items?expand=fields";
+        // SharePoint REST API Endpoint
+        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
         // MSAL-Instanz erstellen
         const msalInstance = new msal.PublicClientApplication(msalConfig);
@@ -135,9 +136,10 @@
                 console.log("Token erhalten:", token);
 
                 // SharePoint-Daten abrufen
-                const response = await fetch(graphEndpoint, {
+                const response = await fetch(listEndpoint, {
                     headers: {
-                        Authorization: `Bearer ${token}`
+                        Authorization: `Bearer ${token}`,
+                        Accept: "application/json;odata=verbose"
                     }
                 });
 
@@ -146,8 +148,8 @@
                 }
 
                 const data = await response.json();
-                console.log("Kundendaten:", data);
-                populateTable(data.value);
+                console.log("Kundendaten:", data.d.results);
+                populateTable(data.d.results);
             } catch (error) {
                 console.error("Fehler beim Abrufen der Kundendaten:", error);
                 alert("Fehler beim Abrufen der Daten. Bitte versuchen Sie es erneut.");
@@ -163,11 +165,11 @@
             data.forEach(item => {
                 const row = document.createElement("tr");
                 row.innerHTML = `
-                    <td>${item.id}</td>
-                    <td>${item.fields.Vorname || "-"}</td>
-                    <td>${item.fields.Nachname || "-"}</td>
-                    <td>${item.fields.Längengrad || "-"}</td>
-                    <td>${item.fields.Breitengrad || "-"}</td>
+                    <td>${item.Id}</td>
+                    <td>${item.Vorname || "-"}</td>
+                    <td>${item.Nachname || "-"}</td>
+                    <td>${item.Längengrad || "-"}</td>
+                    <td>${item.Breitengrad || "-"}</td>
                 `;
                 tbody.appendChild(row);
             });
