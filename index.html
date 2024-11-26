@@ -180,30 +180,30 @@
         });
 
         function displayMarkers(customers) {
-    customers.forEach(customer => {
-        console.log("Verarbeite Kunde:", customer.Vorname, customer.Nachname);
-        console.log("L_x00e4_ngengrad:", customer.L_x00e4_ngengrad, "Breitengrad:", customer.Breitengrad);
+        customers.forEach(customer => {
+        console.log(`Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}`);
+        console.log(`Längengrad: ${customer.L_x00e4_ngengrad}, Breitengrad: ${customer.Breitengrad}`);
 
-        // Werte umwandeln und validieren
+        // Koordinaten bereinigen und validieren
         const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.').trim());
         const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
 
         if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-            console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
+            console.warn(`Ungültige Koordinaten für Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
             return; // Überspringe ungültige Werte
         }
 
-        // Marker-Element erstellen
+        // Marker erstellen
         const markerElement = document.createElement('div');
         markerElement.className = 'custom-marker';
 
-        // Popup für Marker
-        const popup = new mapboxgl.Popup().setHTML(`
+        // Popup hinzufügen
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
             <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
             <p>ID: ${customer.Id}</p>
         `);
 
-        // Marker hinzufügen
+        // Marker zur Karte hinzufügen
         new mapboxgl.Marker({ element: markerElement })
             .setLngLat([lng, lat])
             .setPopup(popup)
@@ -212,6 +212,7 @@
         console.log(`Marker erstellt für: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
     });
 }
+
 
 
 
