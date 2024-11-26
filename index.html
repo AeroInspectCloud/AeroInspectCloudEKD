@@ -8,12 +8,15 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <style>
+        /* Allgemeiner Stil */
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #f0f0f0;
         }
 
+        /* Karte */
         #map {
             position: absolute;
             top: 0;
@@ -21,72 +24,118 @@
             width: 100%;
         }
 
-        #login-button, #fetch-data-button {
+        /* Buttons */
+        #login-button, #fetch-data-button, #data-button {
             position: absolute;
             top: 10px;
             left: 10px;
             padding: 10px 20px;
             font-size: 14px;
             border: none;
-            background-color: #0078d4;
-            color: white;
+            background-color: #1f1f1f;
+            color: #f0f0f0;
             border-radius: 5px;
             cursor: pointer;
+            transition: all 0.3s ease;
             z-index: 10;
         }
 
         #fetch-data-button {
-            margin-top: 50px;
+            margin-top: 60px;
         }
 
-        #data-table {
-            position: absolute;
-            top: 120px;
-            left: 10px;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            width: 300px;
-            max-height: 400px;
+        #data-button {
+            margin-top: 120px;
+        }
+
+        #login-button:hover, #fetch-data-button:hover, #data-button:hover {
+            background-color: #333;
+            color: #fff;
+        }
+
+        /* Popup-Tabelle */
+        #data-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1f1f1f;
+            border: 1px solid #333;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+            width: 80%;
+            max-width: 600px;
+            max-height: 70%;
             overflow-y: auto;
+            padding: 20px;
             display: none;
-            z-index: 10;
+            z-index: 20;
         }
 
-        #data-table th, #data-table td {
+        #data-popup table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #data-popup th, #data-popup td {
             padding: 10px;
-            border-bottom: 1px solid #ddd;
+            text-align: left;
+            border-bottom: 1px solid #333;
         }
 
-        #data-table th {
-            background-color: #0078d4;
-            color: white;
+        #data-popup th {
+            background-color: #333;
+            color: #f0f0f0;
         }
 
-        /* Regel für die Marker */
-    .custom-marker {
-        width: 20px;
-        height: 20px;
-        background-color: red; /* Testweise sichtbar machen */
-        border-radius: 50%;
-    }
+        #close-popup {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #f0f0f0;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #close-popup:hover {
+            color: #ff5555;
+        }
+
+        /* Marker */
+        .custom-marker {
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            border: 2px solid black;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
     </style>
 </head>
 <body>
     <button id="login-button">Login</button>
     <button id="fetch-data-button" disabled>Load Kundendaten</button>
+    <button id="data-button">Show Data</button>
     <div id="map"></div>
-    <table id="data-table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Vorname</th>
-                <th>Nachname</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+
+    <!-- Popup für die Tabelle -->
+    <div id="data-popup">
+        <button id="close-popup">&times;</button>
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>Längengrad</th>
+                    <th>Breitengrad</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 
     <script>
         // Mapbox Access Token
@@ -105,11 +154,8 @@
             }
         };
 
-        const loginRequest = {
-            scopes: ["https://aeroinspect.sharepoint.com/.default"]
-        };
-
-        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const loginRequest = { scopes: ["User.Read"] };
+        const siteUrl = "https://example.sharepoint.com";
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
@@ -117,20 +163,16 @@
         // Mapbox-Initialisierung
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/light-v10',
+            style: 'mapbox://styles/mapbox/dark-v10',
             center: [10.0, 50.0],
             zoom: 5,
         });
-
-        const customerMarkers = [];
 
         // Login-Button
         document.getElementById("login-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
-                if (!account) {
-                    await msalInstance.loginPopup(loginRequest);
-                }
+                if (!account) await msalInstance.loginPopup(loginRequest);
                 document.getElementById("fetch-data-button").disabled = false;
                 alert("Erfolgreich angemeldet!");
             } catch (error) {
@@ -143,42 +185,24 @@
         document.getElementById("fetch-data-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
-                let token;
-
-                try {
-                    const tokenResponse = await msalInstance.acquireTokenSilent({
-                        ...loginRequest,
-                        account,
-                    });
-                    token = tokenResponse.accessToken;
-                } catch (error) {
-                    if (error instanceof msal.InteractionRequiredAuthError) {
-                        const tokenResponse = await msalInstance.acquireTokenPopup({
-                            ...loginRequest,
-                        });
-                        token = tokenResponse.accessToken;
-                    } else {
-                        throw error;
-                    }
-                }
+                const tokenResponse = await msalInstance.acquireTokenSilent({
+                    ...loginRequest,
+                    account,
+                });
 
                 const response = await fetch(listEndpoint, {
                     headers: {
-                        Authorization: `Bearer ${token}`,
+                        Authorization: `Bearer ${tokenResponse.accessToken}`,
                         Accept: "application/json;odata=verbose",
                     },
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Fehler beim Abrufen der Daten: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`Fehler beim Abrufen der Daten: ${response.statusText}`);
 
                 const data = await response.json();
                 const customerData = data.d.results;
-
-                // Hier wird die Ausgabe der API-Daten in der Konsole protokolliert
                 console.log("API-Daten:", customerData);
-                
+
                 displayMarkers(customerData);
                 populateTable(customerData);
             } catch (error) {
@@ -187,63 +211,55 @@
             }
         });
 
+        // Marker und Popups erstellen
         function displayMarkers(customers) {
-        customers.forEach(customer => {
-        console.log(`Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}`);
-        console.log(`Längengrad: ${customer.L_x00e4_ngengrad}, Breitengrad: ${customer.Breitengrad}`);
+            customers.forEach(customer => {
+                const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.').trim());
+                const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
 
-        // Koordinaten bereinigen und validieren
-        const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.').trim());
-        const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
+                if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) return;
 
-        if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-            console.warn(`Ungültige Koordinaten für Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
-            return; // Überspringe ungültige Werte
+                const markerElement = document.createElement('div');
+                markerElement.className = 'custom-marker';
+
+                const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                    <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
+                    <p>ID: ${customer.Id}</p>
+                `);
+
+                new mapboxgl.Marker(markerElement)
+                    .setLngLat([lng, lat])
+                    .setPopup(popup)
+                    .addTo(map);
+            });
         }
 
-        // Marker erstellen
-        const markerElement = document.createElement('div');
-        markerElement.className = 'custom-marker';
-
-        // Popup hinzufügen
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-            <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
-            <p>ID: ${customer.Id}</p>
-        `);
-
-        // Marker zur Karte hinzufügen
-        new mapboxgl.Marker({ element: markerElement })
-            .setLngLat([lng, lat])
-            .setPopup(popup)
-            .addTo(map);
-
-        console.log(`Marker erstellt für: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
-    });
-}
-
-
-
-
+        // Daten in die Tabelle einfügen
         function populateTable(customers) {
-    const table = document.getElementById("data-table");
-    const tbody = table.querySelector("tbody");
-    tbody.innerHTML = "";
+            const tbody = document.querySelector("#data-table tbody");
+            tbody.innerHTML = "";
 
-    customers.forEach(customer => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${customer.Id}</td>
-            <td>${customer.Vorname || "-"}</td>
-            <td>${customer.Nachname || "-"}</td>
-            <td>${customer.L_x00e4_ngengrad || "-"}</td>
-            <td>${customer.Breitengrad || "-"}</td>
-        `;
-        tbody.appendChild(row);
-    });
+            customers.forEach(customer => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${customer.Id}</td>
+                    <td>${customer.Vorname || "-"}</td>
+                    <td>${customer.Nachname || "-"}</td>
+                    <td>${customer.L_x00e4_ngengrad || "-"}</td>
+                    <td>${customer.Breitengrad || "-"}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
 
-    table.style.display = "block";
-}
+        // Popup für die Tabelle anzeigen/verstecken
+        document.getElementById("data-button").addEventListener("click", () => {
+            document.getElementById("data-popup").style.display = "block";
+        });
 
+        document.getElementById("close-popup").addEventListener("click", () => {
+            document.getElementById("data-popup").style.display = "none";
+        });
     </script>
 </body>
 </html>
