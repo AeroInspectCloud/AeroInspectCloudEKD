@@ -208,10 +208,10 @@
             .setLngLat([lng, lat])
             .setPopup(popup)
             .addTo(map);
+
+        console.log(`Marker erstellt für: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
     });
 }
-
-
 
 
 
