@@ -196,24 +196,28 @@
         }
 
         function displayMarkers(customers) {
-        customers.forEach(customer => {
-        const lng = parseFloat(customer.Längengrad);
-        const lat = parseFloat(customer.Breitengrad);
+    customers.forEach(customer => {
+        // Textkoordinaten in Zahlen umwandeln
+        const lng = parseFloat(customer.Längengrad?.replace(',', '.')); // Ersetzt Komma durch Punkt
+        const lat = parseFloat(customer.Breitengrad?.replace(',', '.')); // Ersetzt Komma durch Punkt
 
         // Überprüfung auf gültige Koordinaten
         if (isNaN(lng) || isNaN(lat)) {
-            console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname} ${customer.Nachname}: (${lng}, ${lat})`);
+            console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
             return; // Überspringt den fehlerhaften Eintrag
         }
 
+        // Marker-Element erstellen
         const markerElement = document.createElement('div');
         markerElement.className = 'custom-marker';
 
+        // Popup für Marker
         const popup = new mapboxgl.Popup().setHTML(`
-            <h3>${customer.Vorname} ${customer.Nachname}</h3>
+            <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
             <p>ID: ${customer.Id}</p>
         `);
 
+        // Marker auf der Karte platzieren
         const marker = new mapboxgl.Marker({ element: markerElement })
             .setLngLat([lng, lat])
             .setPopup(popup)
@@ -224,24 +228,27 @@
 }
 
 
-        // Tabelle mit Kundendaten füllen
+
         function populateTable(customers) {
-            const table = document.getElementById("data-table");
-            const tbody = table.querySelector("tbody");
-            tbody.innerHTML = "";
+    const table = document.getElementById("data-table");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
 
-            customers.forEach(customer => {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${customer.Id}</td>
-                    <td>${customer.Vorname || "-"}</td>
-                    <td>${customer.Nachname || "-"}</td>
-                `;
-                tbody.appendChild(row);
-            });
+    customers.forEach(customer => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${customer.Id}</td>
+            <td>${customer.Vorname || "-"}</td>
+            <td>${customer.Nachname || "-"}</td>
+            <td>${customer.Längengrad || "-"}</td>
+            <td>${customer.Breitengrad || "-"}</td>
+        `;
+        tbody.appendChild(row);
+    });
 
-            table.style.display = "block";
-        }
+    table.style.display = "block";
+}
+
     </script>
 </body>
 </html>
