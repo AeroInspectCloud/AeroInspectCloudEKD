@@ -197,15 +197,14 @@
 
         function displayMarkers(customers) {
     customers.forEach(customer => {
-       // Koordinaten als Dezimalzahlen konvertieren
+        // Koordinaten konvertieren und prüfen
         const lng = parseFloat(customer.Längengrad?.replace(',', '.')); // Längengrad
         const lat = parseFloat(customer.Breitengrad?.replace(',', '.')); // Breitengrad
 
-
         // Überprüfung auf gültige Koordinaten
-        if (isNaN(lng) || isNaN(lat)) {
+        if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
             console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}: (${lng}, ${lat})`);
-            return; // Überspringt den fehlerhaften Eintrag
+            return; // Überspringt ungültige Einträge
         }
 
         // Marker-Element erstellen
@@ -218,15 +217,21 @@
             <p>ID: ${customer.Id}</p>
         `);
 
-        // Marker auf der Karte platzieren
-        const marker = new mapboxgl.Marker({ element: markerElement })
+        // Marker hinzufügen
+        new mapboxgl.Marker({ element: markerElement })
             .setLngLat([lng, lat])
             .setPopup(popup)
             .addTo(map);
+// Ausgabe Konsole
+        const data = await response.json();
+        console.log("Kundendaten aus SharePoint:", data.d.results); // Debugging der Rohdaten
+        const customerData = data.d.results;
+        displayMarkers(customerData);
+        populateTable(customerData);
 
-        customerMarkers.push(marker);
     });
 }
+
 
 
 
