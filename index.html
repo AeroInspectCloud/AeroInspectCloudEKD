@@ -195,6 +195,35 @@
             });
         }
 
+        function displayMarkers(customers) {
+        customers.forEach(customer => {
+        const lng = parseFloat(customer.Längengrad);
+        const lat = parseFloat(customer.Breitengrad);
+
+        // Überprüfung auf gültige Koordinaten
+        if (isNaN(lng) || isNaN(lat)) {
+            console.warn(`Ungültige Koordinaten für Kunde ${customer.Vorname} ${customer.Nachname}: (${lng}, ${lat})`);
+            return; // Überspringt den fehlerhaften Eintrag
+        }
+
+        const markerElement = document.createElement('div');
+        markerElement.className = 'custom-marker';
+
+        const popup = new mapboxgl.Popup().setHTML(`
+            <h3>${customer.Vorname} ${customer.Nachname}</h3>
+            <p>ID: ${customer.Id}</p>
+        `);
+
+        const marker = new mapboxgl.Marker({ element: markerElement })
+            .setLngLat([lng, lat])
+            .setPopup(popup)
+            .addTo(map);
+
+        customerMarkers.push(marker);
+    });
+}
+
+
         // Tabelle mit Kundendaten füllen
         function populateTable(customers) {
             const table = document.getElementById("data-table");
