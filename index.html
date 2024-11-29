@@ -24,16 +24,21 @@
       zoom: 12
     });
 
-    // Funktion zum Abrufen von Wegpunkten
-    async function getWaypoints() {
-      // Beispiel-Daten (kannst du durch Fetch oder URL-Parameter ersetzen)
-      const waypoints = [
-        [13.569859, 52.565279], // Startpunkt
-        [13.373743, 52.677962], // Zielpunkt
-        [13.401872, 52.519243]  // Optionaler Zwischenpunkt
-      ];
+    // Funktion zum Abrufen von Wegpunkten aus dem Query-Body
+    async function getWaypointsFromQuery() {
+      // Diese Daten simulieren den Query-Body aus Retool
+      const Routenoptimierung = {
+        data: {
+          waypoints: [
+            { location: [13.569859, 52.565279], name: "Startpunkt" },
+            { location: [13.373743, 52.677962], name: "Waypoint 1" },
+            { location: [13.401872, 52.519243], name: "Waypoint 2" }
+          ]
+        }
+      };
 
-      return waypoints;
+      // Extrahiere die Wegpunkte aus dem Query
+      return Routenoptimierung.data.waypoints.map(point => point.location);
     }
 
     // Funktion zur Optimierung der Route mit der Mapbox Directions API
@@ -46,6 +51,8 @@
         const data = await response.json();
         if (data.code === 'Ok' && data.trips.length > 0) {
           return data.trips[0].geometry.coordinates; // Koordinaten der optimierten Route
+        } else {
+          console.error('Fehlerhafte API-Antwort:', data);
         }
       } catch (error) {
         console.error('Fehler beim Abrufen der Route:', error);
@@ -56,7 +63,7 @@
 
     // Funktion zur Anzeige von Wegpunkten und der Route
     async function showRoute() {
-      const waypoints = await getWaypoints();
+      const waypoints = await getWaypointsFromQuery();
       const route = await fetchOptimizedRoute(waypoints);
 
       map.on('load', () => {
