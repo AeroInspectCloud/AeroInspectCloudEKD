@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapbox Route with Polylines</title>
+  <title>Mapbox Route with POST</title>
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
   <style>
@@ -14,63 +14,78 @@
 <body>
   <div id="map"></div>
   <script>
-    // Mapbox access token
     mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
-    // Lese Query-Parameter aus
-    const urlParams = new URLSearchParams(window.location.search);
-    const data = JSON.parse(urlParams.get('data') || '{}');
-
-    // Nutze die Daten (z. B. für waypoints und trips)
-    const apiResponse = data;
-
-    // Initialize map
     const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/mapbox/streets-v11',
-      center: [13.569859, 52.565279], // Starteinstellung
+      center: [13.569859, 52.565279], // Default Center
       zoom: 12
     });
 
-    map.on('load', () => {
-      // Route hinzufügen
-      if (apiResponse && apiResponse.trips && apiResponse.trips[0]) {
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
+    // Lese POST-Daten mit Fetch oder Simulieren:
+    let apiResponse = {};
+    async function getPostData() {
+      // Beispiel: Simulierte POST-Daten
+      apiResponse = {
+        waypoints: [
+          { location: [13.569859, 52.565279], name: "Start Point" },
+          { location: [13.373743, 52.677962], name: "Waypoint 1" }
+        ],
+        trips: [
+          {
             geometry: {
-              type: 'LineString',
-              coordinates: apiResponse.trips[0].geometry.coordinates
+              coordinates: [
+                [13.569859, 52.565279],
+                [13.373743, 52.677962]
+              ]
             }
           }
-        });
+        ]
+      };
 
-        map.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': '#007cbf',
-            'line-width': 4
-          }
-        });
-      }
+      map.on('load', () => {
+        // Route hinzufügen
+        if (apiResponse && apiResponse.trips && apiResponse.trips[0]) {
+          map.addSource('route', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: apiResponse.trips[0].geometry.coordinates
+              }
+            }
+          });
 
-      // Wegpunkte hinzufügen
-      if (apiResponse && apiResponse.waypoints) {
-        apiResponse.waypoints.forEach(point => {
-          new mapboxgl.Marker({ color: 'red' })
-            .setLngLat(point.location)
-            .setPopup(new mapboxgl.Popup().setText(point.name || `Waypoint`))
-            .addTo(map);
-        });
-      }
-    });
+          map.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#007cbf',
+              'line-width': 4
+            }
+          });
+        }
+
+        // Marker für Wegpunkte hinzufügen
+        if (apiResponse && apiResponse.waypoints) {
+          apiResponse.waypoints.forEach(point => {
+            new mapboxgl.Marker({ color: 'red' })
+              .setLngLat(point.location)
+              .setPopup(new mapboxgl.Popup().setText(point.name || `Waypoint`))
+              .addTo(map);
+          });
+        }
+      });
+    }
+
+    getPostData();
   </script>
 </body>
 </html>
