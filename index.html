@@ -14,70 +14,62 @@
 <body>
   <div id="map"></div>
   <script>
+    // Mapbox access token
     mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
+    // Lese Query-Parameter aus
+    const urlParams = new URLSearchParams(window.location.search);
+    const data = JSON.parse(urlParams.get('data') || '{}');
+
+    // Nutze die Daten (z. B. für waypoints und trips)
+    const apiResponse = data;
+
+    // Initialize map
     const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/mapbox/streets-v11',
-      center: [13.569859, 52.565279], // Center of the map
+      center: [13.569859, 52.565279], // Starteinstellung
       zoom: 12
     });
 
-    // Example API response (replace dynamically)
-    const apiResponse = {
-      waypoints: [
-        { location: [13.569859, 52.565279], name: "Start Point" },
-        { location: [13.373743, 52.677962], name: "Waypoint 1" },
-        { location: [13.569859, 52.565279], name: "End Point" }
-      ],
-      trips: [
-        {
-          geometry: {
-            coordinates: [
-              [13.569859, 52.565279],
-              [13.570111, 52.565196],
-              [13.373743, 52.677962],
-              [13.569859, 52.565279]
-            ]
-          }
-        }
-      ]
-    };
-
     map.on('load', () => {
-      // Add the route as a GeoJSON source
-      map.addSource('route', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: apiResponse.trips[0].geometry.coordinates
+      // Route hinzufügen
+      if (apiResponse && apiResponse.trips && apiResponse.trips[0]) {
+        map.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: apiResponse.trips[0].geometry.coordinates
+            }
           }
-        }
-      });
+        });
 
-      map.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#007cbf',
-          'line-width': 4
-        }
-      });
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#007cbf',
+            'line-width': 4
+          }
+        });
+      }
 
-      // Add waypoints as markers
-      apiResponse.waypoints.forEach(point => {
-        new mapboxgl.Marker({ color: 'red' })
-          .setLngLat(point.location)
-          .setPopup(new mapboxgl.Popup().setText(point.name || `Waypoint`))
-          .addTo(map);
-      });
+      // Wegpunkte hinzufügen
+      if (apiResponse && apiResponse.waypoints) {
+        apiResponse.waypoints.forEach(point => {
+          new mapboxgl.Marker({ color: 'red' })
+            .setLngLat(point.location)
+            .setPopup(new mapboxgl.Popup().setText(point.name || `Waypoint`))
+            .addTo(map);
+        });
+      }
     });
   </script>
 </body>
