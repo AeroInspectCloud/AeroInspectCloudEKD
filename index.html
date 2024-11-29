@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapbox Route with POST</title>
+  <title>Mapbox Straßenroute</title>
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
   <style>
@@ -16,44 +16,67 @@
   <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
+    // Initialisiere die Karte
     const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/mapbox/streets-v11',
-      center: [13.569859, 52.565279], // Default Center
+      center: [13.569859, 52.565279], // Standard-Zentrum
       zoom: 12
     });
 
-    // Lese POST-Daten mit Fetch oder Simulieren:
-    let apiResponse = {};
-    async function getPostData() {
-      // Beispiel: Simulierte POST-Daten
-      apiResponse = {
-        waypoints: [
-          { location: [13.569859, 52.565279], name: "Start Point" },
-          { location: [13.373743, 52.677962], name: "Waypoint 1" }
-        ],
-        trips: [
-          {
-            geometry: {
-              coordinates: [
-                [13.569859, 52.565279],
-                [13.373743, 52.677962]
-              ]
-            }
-          }
-        ]
-      };
+    // Funktion zum Abrufen von Wegpunkten
+    async function getWaypoints() {
+      // Beispiel-Daten (kannst du durch Fetch oder URL-Parameter ersetzen)
+      const waypoints = [
+        [13.569859, 52.565279], // Startpunkt
+        [13.373743, 52.677962], // Zielpunkt
+        [13.401872, 52.519243]  // Optionaler Zwischenpunkt
+      ];
+
+      return waypoints;
+    }
+
+    // Funktion zur Optimierung der Route mit der Mapbox Directions API
+    async function fetchOptimizedRoute(waypoints) {
+      const coordinates = waypoints.map(point => point.join(',')).join(';');
+      const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&roundtrip=false&source=first&destination=last&access_token=${mapboxgl.accessToken}`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.code === 'Ok' && data.trips.length > 0) {
+          return data.trips[0].geometry.coordinates; // Koordinaten der optimierten Route
+        }
+      } catch (error) {
+        console.error('Fehler beim Abrufen der Route:', error);
+      }
+
+      return null;
+    }
+
+    // Funktion zur Anzeige von Wegpunkten und der Route
+    async function showRoute() {
+      const waypoints = await getWaypoints();
+      const route = await fetchOptimizedRoute(waypoints);
 
       map.on('load', () => {
-        // Route hinzufügen
-        if (apiResponse && apiResponse.trips && apiResponse.trips[0]) {
+        // Füge Marker für die Wegpunkte hinzu
+        waypoints.forEach((point, index) => {
+          new mapboxgl.Marker({ color: index === 0 ? 'green' : index === waypoints.length - 1 ? 'red' : 'blue' })
+            .setLngLat(point)
+            .setPopup(new mapboxgl.Popup().setText(`Waypoint ${index + 1}`))
+            .addTo(map);
+        });
+
+        // Füge die optimierte Route als Linie hinzu
+        if (route) {
           map.addSource('route', {
             type: 'geojson',
             data: {
               type: 'Feature',
               geometry: {
                 type: 'LineString',
-                coordinates: apiResponse.trips[0].geometry.coordinates
+                coordinates: route
               }
             }
           });
@@ -71,21 +94,14 @@
               'line-width': 4
             }
           });
-        }
-
-        // Marker für Wegpunkte hinzufügen
-        if (apiResponse && apiResponse.waypoints) {
-          apiResponse.waypoints.forEach(point => {
-            new mapboxgl.Marker({ color: 'red' })
-              .setLngLat(point.location)
-              .setPopup(new mapboxgl.Popup().setText(point.name || `Waypoint`))
-              .addTo(map);
-          });
+        } else {
+          alert('Route konnte nicht geladen werden.');
         }
       });
     }
 
-    getPostData();
+    // Route anzeigen
+    showRoute();
   </script>
 </body>
 </html>
