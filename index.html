@@ -52,12 +52,17 @@
         .addTo(map);
 
       // Klick-Event für Marker
-      el.addEventListener('click', () => {
-        const markerData = marker.data; // Marker-Daten
-        console.log('Marker-Daten gesendet:', markerData); // Debugging
-        // Marker-Daten an Retool senden
-        window.parent.postMessage(markerData, '*');
-      });
+     el.addEventListener('click', () => {
+  const markerData = {
+    type: 'MARKER_DATA', // Eindeutige Kennzeichnung
+    payload: marker.data, // Marker-Daten
+  };
+  console.log('Marker-Daten gesendet:', markerData);
+
+  // Nachricht senden
+  window.parent.postMessage(markerData, 'https://aeroinspect.retool.com');
+});
+
     });
   </script>
 </body>
