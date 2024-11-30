@@ -51,12 +51,11 @@
         .addTo(map);
 
       // Klick-Event für Marker
-      el.addEventListener('click', (event) => {
-        event.stopPropagation();
-        console.log('Marker-Daten:', marker.data); // Debug-Ausgabe
-        // Marker-Daten an den Eltern-Frame senden (Retool)
-        window.parent.postMessage(marker.data, '*');
-      });
+      el.addEventListener('click', () => {
+      const markerData = marker.data;
+      console.log('Marker-Daten gespeichert:', markerData);
+      window.localStorage.setItem('selectedMarker', JSON.stringify(markerData));
+    });
     });
   </script>
 </body>
