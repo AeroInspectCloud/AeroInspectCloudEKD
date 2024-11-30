@@ -1,0 +1,6 @@
+[
+  { "coordinates": [10.0, 50.0], "name": "Marker 1", "info": "Info 1" },
+  { "coordinates": [12.0, 51.0], "name": "Marker 2", "info": "Info 2" },
+  { "coordinates": [13.0, 53.0], "name": "Marker 3", "info": "Info 3" },
+  { "coordinates": [12.0, 54.0], "name": "Marker 4", "info": "Info 4" }
+]
