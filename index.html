@@ -1,69 +1,249 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapbox Karte</title>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-  <style>
-    #map {
-      width: 100%;
-      height: 100vh;
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AERO INSPECT - Kundendaten</title>
+    <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        #login-button, #fetch-data-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            background-color: #0078d4;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #fetch-data-button {
+            margin-top: 50px;
+        }
+
+        #data-table {
+            position: absolute;
+            top: 120px;
+            left: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 10;
+        }
+
+        #data-table th, #data-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #data-table th {
+            background-color: #0078d4;
+            color: white;
+        }
+
+        /* Regel für die Marker */
+    .custom-marker {
+        width: 20px;
+        height: 20px;
+        background-color: red; /* Testweise sichtbar machen */
+        border-radius: 50%;
     }
-    .marker {
-      width: 20px;
-      height: 20px;
-      background-color: red;
-      border-radius: 50%;
-      cursor: pointer; /* Zeigt den Klick-Cursor */
-    }
-  </style>
+    </style>
 </head>
 <body>
-  <div id="map"></div>
-  <script>
-    mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A'; // Mapbox-API-Schlüssel
+    <button id="login-button">Login</button>
+    <button id="fetch-data-button" disabled>Load Kundendaten</button>
+    <div id="map"></div>
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Vorname</th>
+                <th>Nachname</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-    // Karte initialisieren
-    const map = new mapboxgl.Map({
-      container: 'map', // ID des Containers
-      style: 'mapbox://styles/mapbox/streets-v11', // Kartenstil
-      center: [10.0, 50.0], // Startkoordinaten (Longitude, Latitude)
-      zoom: 5, // Zoomstufe
+    <script>
+        // Mapbox Access Token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
+
+        // MSAL Konfiguration
+        const msalConfig = {
+            auth: {
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
+                redirectUri: window.location.origin,
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: false,
+            }
+        };
+
+        const loginRequest = {
+            scopes: ["https://aeroinspect.sharepoint.com/.default"]
+        };
+
+        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
+
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        // Mapbox-Initialisierung
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v10',
+            center: [10.0, 50.0],
+            zoom: 5,
+        });
+
+        const customerMarkers = [];
+
+        // Login-Button
+        document.getElementById("login-button").addEventListener("click", async () => {
+            try {
+                const account = msalInstance.getAllAccounts()[0];
+                if (!account) {
+                    await msalInstance.loginPopup(loginRequest);
+                }
+                document.getElementById("fetch-data-button").disabled = false;
+                alert("Erfolgreich angemeldet!");
+            } catch (error) {
+                console.error("Login-Fehler:", error);
+                alert("Login fehlgeschlagen. Bitte versuchen Sie es erneut.");
+            }
+        });
+
+        // Kundendaten abrufen
+        document.getElementById("fetch-data-button").addEventListener("click", async () => {
+            try {
+                const account = msalInstance.getAllAccounts()[0];
+                let token;
+
+                try {
+                    const tokenResponse = await msalInstance.acquireTokenSilent({
+                        ...loginRequest,
+                        account,
+                    });
+                    token = tokenResponse.accessToken;
+                } catch (error) {
+                    if (error instanceof msal.InteractionRequiredAuthError) {
+                        const tokenResponse = await msalInstance.acquireTokenPopup({
+                            ...loginRequest,
+                        });
+                        token = tokenResponse.accessToken;
+                    } else {
+                        throw error;
+                    }
+                }
+
+                const response = await fetch(listEndpoint, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: "application/json;odata=verbose",
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Fehler beim Abrufen der Daten: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const customerData = data.d.results;
+
+                // Hier wird die Ausgabe der API-Daten in der Konsole protokolliert
+                console.log("API-Daten:", customerData);
+                
+                displayMarkers(customerData);
+                populateTable(customerData);
+            } catch (error) {
+                console.error("Fehler beim Abrufen der Daten:", error);
+                alert("Fehler beim Abrufen der Daten. Bitte versuchen Sie es erneut.");
+            }
+        });
+
+        function displayMarkers(customers) {
+        customers.forEach(customer => {
+        console.log(`Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}`);
+        console.log(`Längengrad: ${customer.L_x00e4_ngengrad}, Breitengrad: ${customer.Breitengrad}`);
+
+        // Koordinaten bereinigen und validieren
+        const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.').trim());
+        const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
+
+        if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+            console.warn(`Ungültige Koordinaten für Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
+            return; // Überspringe ungültige Werte
+        }
+
+        // Marker erstellen
+        const markerElement = document.createElement('div');
+        markerElement.className = 'custom-marker';
+
+        // Popup hinzufügen
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+            <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
+            <p>ID: ${customer.Id}</p>
+        `);
+
+        // Marker zur Karte hinzufügen
+        new mapboxgl.Marker({ element: markerElement })
+            .setLngLat([lng, lat])
+            .setPopup(popup)
+            .addTo(map);
+
+        console.log(`Marker erstellt für: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
+    });
+}
+
+
+
+
+        function populateTable(customers) {
+    const table = document.getElementById("data-table");
+    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = "";
+
+    customers.forEach(customer => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${customer.Id}</td>
+            <td>${customer.Vorname || "-"}</td>
+            <td>${customer.Nachname || "-"}</td>
+            <td>${customer.L_x00e4_ngengrad || "-"}</td>
+            <td>${customer.Breitengrad || "-"}</td>
+        `;
+        tbody.appendChild(row);
     });
 
-    // Marker-Daten
-    const markers = [
-      { coordinates: [10.0, 50.0], data: { name: 'Marker 1', info: 'Info 1' } },
-      { coordinates: [12.0, 51.0], data: { name: 'Marker 2', info: 'Info 2' } },
-      { coordinates: [13.0, 53.0], data: { name: 'Marker 3', info: 'Info 3' } },
-      { coordinates: [12.0, 54.0], data: { name: 'Marker 4', info: 'Info 4' } },
-    ];
+    table.style.display = "block";
+}
 
-    // Marker auf der Karte hinzufügen
-    markers.forEach(marker => {
-      const el = document.createElement('div');
-      el.className = 'marker'; // Klasse für Styling
-
-      // Marker zur Karte hinzufügen
-      new mapboxgl.Marker(el)
-        .setLngLat(marker.coordinates) // Position des Markers
-        .addTo(map);
-
-      // Klick-Event für Marker
-     el.addEventListener('click', () => {
-  const markerData = {
-    type: 'MARKER_DATA', // Eindeutige Kennzeichnung
-    payload: marker.data, // Marker-Daten
-  };
-  console.log('Marker-Daten gesendet:', markerData);
-
-  // Nachricht senden
-  window.parent.postMessage(markerData, 'https://aeroinspect.retool.com');
-});
-
-    });
-  </script>
+    </script>
 </body>
 </html>
