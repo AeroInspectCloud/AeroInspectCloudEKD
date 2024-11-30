@@ -54,7 +54,7 @@
      el.addEventListener('click', () => {
   const markerData = marker.data;
   console.log('Marker-Daten gesendet:', markerData);
-  window.parent.postMessage(markerData, '*');
+  window.parent.postMessage(markerData, 'https://aeroinspect.retool.com');
 });
 
     });
