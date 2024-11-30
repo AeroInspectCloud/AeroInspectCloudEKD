@@ -56,7 +56,7 @@
         const markerData = marker.data; // Marker-Daten
         console.log('Marker-Daten gesendet:', markerData); // Debugging
         // Marker-Daten an Retool senden
-        window.parent.postMessage(markerData, 'https://aeroinspect.retool.com');
+        window.parent.postMessage(markerData, '*');
       });
     });
   </script>
