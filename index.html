@@ -3,112 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mapbox Straßenroute</title>
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+  <title>Mapbox Karte</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
   <style>
-    body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    #map {
+      width: 100%;
+      height: 100vh;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script>
-    mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
-
-    // Initialisiere die Karte
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A'; // Dein Mapbox-API-Schlüssel
     const map = new mapboxgl.Map({
       container: 'map',
       style: 'mapbox://styles/mapbox/streets-v11',
-      center: [13.569859, 52.565279], // Standard-Zentrum
-      zoom: 12
+      center: [10.0, 50.0],
+      zoom: 5,
     });
 
-    // Funktion zum Abrufen von Wegpunkten aus dem Query-Body
-    async function getWaypointsFromQuery() {
-      // Diese Daten simulieren den Query-Body aus Retool
-      const Routenoptimierung = {
-        data: {
-          waypoints: [
-            { location: [13.569859, 52.565279], name: "Startpunkt" },
-            { location: [13.373743, 52.677962], name: "Waypoint 1" },
-            { location: [13.401872, 52.519243], name: "Waypoint 2" }
-          ]
-        }
-      };
+    const markers = [
+      { coordinates: [10.0, 50.0], data: { name: 'Marker 1', info: 'Details 1' } },
+      { coordinates: [12.0, 51.0], data: { name: 'Marker 2', info: 'Details 2' } },
+    ];
 
-      // Extrahiere die Wegpunkte aus dem Query
-      return Routenoptimierung.data.waypoints.map(point => point.location);
-    }
+    markers.forEach(marker => {
+      const el = document.createElement('div');
+      el.className = 'marker';
+      el.style.width = '20px';
+      el.style.height = '20px';
+      el.style.backgroundColor = 'red';
+      el.style.borderRadius = '50%';
 
-    // Funktion zur Optimierung der Route mit der Mapbox Directions API
-    async function fetchOptimizedRoute(waypoints) {
-      const coordinates = waypoints.map(point => point.join(',')).join(';');
-      const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&roundtrip=false&source=first&destination=last&access_token=${mapboxgl.accessToken}`;
+      new mapboxgl.Marker(el)
+        .setLngLat(marker.coordinates)
+        .addTo(map);
 
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.code === 'Ok' && data.trips.length > 0) {
-          return data.trips[0].geometry.coordinates; // Koordinaten der optimierten Route
-        } else {
-          console.error('Fehlerhafte API-Antwort:', data);
-        }
-      } catch (error) {
-        console.error('Fehler beim Abrufen der Route:', error);
-      }
-
-      return null;
-    }
-
-    // Funktion zur Anzeige von Wegpunkten und der Route
-    async function showRoute() {
-      const waypoints = await getWaypointsFromQuery();
-      const route = await fetchOptimizedRoute(waypoints);
-
-      map.on('load', () => {
-        // Füge Marker für die Wegpunkte hinzu
-        waypoints.forEach((point, index) => {
-          new mapboxgl.Marker({ color: index === 0 ? 'green' : index === waypoints.length - 1 ? 'red' : 'blue' })
-            .setLngLat(point)
-            .setPopup(new mapboxgl.Popup().setText(`Waypoint ${index + 1}`))
-            .addTo(map);
-        });
-
-        // Füge die optimierte Route als Linie hinzu
-        if (route) {
-          map.addSource('route', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              geometry: {
-                type: 'LineString',
-                coordinates: route
-              }
-            }
-          });
-
-          map.addLayer({
-            id: 'route',
-            type: 'line',
-            source: 'route',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round'
-            },
-            paint: {
-              'line-color': '#007cbf',
-              'line-width': 4
-            }
-          });
-        } else {
-          alert('Route konnte nicht geladen werden.');
-        }
+      el.addEventListener('click', () => {
+        window.parent.postMessage(marker.data, '*');
       });
-    }
-
-    // Route anzeigen
-    showRoute();
+    });
   </script>
 </body>
 </html>
