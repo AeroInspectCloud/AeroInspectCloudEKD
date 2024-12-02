@@ -187,33 +187,39 @@
                 const customers = data.d.results;
 
                 customers.forEach(customer => {
-                    const lng = parseFloat(customer.L_x00e4_ngengrad.replace(',', '.'));
-                    const lat = parseFloat(customer.Breitengrad.replace(',', '.'));
+    const lng = parseFloat(customer.L_x00e4_ngengrad.replace(',', '.'));
+    const lat = parseFloat(customer.Breitengrad.replace(',', '.'));
 
-                    if (isNaN(lng) || isNaN(lat)) return;
+    if (isNaN(lng) || isNaN(lat)) {
+        console.warn(`Ungültige Koordinaten: ${customer.Kundenname}, Lng=${lng}, Lat=${lat}`);
+        return;
+    }
 
-                    const markerElement = document.createElement('div');
-                    markerElement.className = 'custom-marker';
-                    markerElement.style.backgroundColor = "red"; // Standardfarbe Rot
+    const markerElement = document.createElement('div');
+    markerElement.className = 'custom-marker';
+    markerElement.style.backgroundColor = "red";
 
-                    const marker = new mapboxgl.Marker({ element: markerElement })
-                        .setLngLat([lng, lat])
-                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${customer.Kundenname}</strong>`))
-                        .addTo(map);
+    const marker = new mapboxgl.Marker({ element: markerElement })
+        .setLngLat([lng, lat])
+        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${customer.Kundenname}</strong>`))
+        .addTo(map);
 
-                    marker.getElement().addEventListener('click', () => {
-                        if (!selectedMarkers.includes(marker)) {
-                            selectedMarkers.push(marker);
-                            marker.getElement().style.backgroundColor = "green"; // Farbe ändern
-                        } else {
-                            selectedMarkers = selectedMarkers.filter(m => m !== marker);
-                            marker.getElement().style.backgroundColor = "red"; // Farbe zurücksetzen
-                        }
-                        optimizeRoute(); // Route optimieren
-                    });
+    console.log(`Marker hinzugefügt für ${customer.Kundenname}: Lng=${lng}, Lat=${lat}`);
 
-                    markers.push(marker);
-                });
+    marker.getElement().addEventListener('click', () => {
+        if (!selectedMarkers.includes(marker)) {
+            selectedMarkers.push(marker);
+            marker.getElement().style.backgroundColor = "green";
+        } else {
+            selectedMarkers = selectedMarkers.filter(m => m !== marker);
+            marker.getElement().style.backgroundColor = "red";
+        }
+        optimizeRoute();
+    });
+
+    markers.push(marker);
+});
+
 
                 document.getElementById("route-details-button").disabled = false;
                 alert("Daten erfolgreich geladen!");
