@@ -22,15 +22,6 @@
             width: 100%;
         }
 
-        .custom-marker {
-            width: 20px;
-            height: 20px;
-            background-color: red;
-            border-radius: 50%;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-        }
-
-
         .control-panel {
             position: absolute;
             top: 10px;
@@ -71,15 +62,6 @@
             cursor: not-allowed;
         }
 
-        .popup-content {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .popup-content strong {
-            font-weight: 700;
-        }
-
         .route-popup {
             position: fixed;
             top: 50%;
@@ -89,8 +71,10 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            display: none;
             z-index: 20;
+            width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
         }
 
         .route-popup h4 {
@@ -99,23 +83,35 @@
             color: #0078d4;
         }
 
-        .route-popup button {
-            background-color: #0078d4;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+        .route-popup table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .route-popup button:hover {
-            background-color: #005fa3;
+        .route-popup th,
+        .route-popup td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .route-popup th {
+            background-color: #0078d4;
+            color: white;
+        }
+
+        .route-popup input {
+            width: 100%;
+            padding: 5px;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="control-panel">
         <h3>Route planen</h3>
+        <label for="start-point">Startpunkt:</label>
+        <input type="text" id="start-point" placeholder="Startadresse eingeben">
         <button id="login-button">Login</button>
         <button id="fetch-data-button" disabled>Daten laden</button>
         <button id="route-details-button" disabled>Routendetails</button>
@@ -124,31 +120,22 @@
 
     <div class="route-popup" id="route-popup">
         <h4>Routendetails</h4>
-        <div id="route-details"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Kunde</th>
+                    <th>Geplante Ankunft</th>
+                    <th>Verweildauer (Min.)</th>
+                    <th>Abfahrtszeit</th>
+                </tr>
+            </thead>
+            <tbody id="route-table-body"></tbody>
+        </table>
         <button onclick="closeRoutePopup()">Schließen</button>
     </div>
 
     <script>
-        // Mapbox Access Token
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
-
-        // MSAL-Konfiguration
-        const msalConfig = {
-            auth: {
-                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
-                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
-                redirectUri: "https://aeroinspectcloud.github.io"
-            }
-        };
-
-        const loginRequest = {
-            scopes: ["https://microsoft.sharepoint.com/Sites.Read.All"]
-        };
-
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
-        const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
         const map = new mapboxgl.Map({
             container: 'map',
@@ -157,18 +144,30 @@
             zoom: 5
         });
 
-        let markers = [];
-        let selectedMarkers = [];
-        let optimizedRouteData = null;
+        const msalConfig = {
+            auth: {
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
+                redirectUri: "https://aeroinspectcloud.github.io"
+            }
+        };
 
-        // Login
-        document.getElementById("login-button").addEventListener("click", async () => {
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+        const loginRequest = { scopes: ["https://microsoft.sharepoint.com/Sites.Read.All"] };
+
+        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
+
+        let routeData = [];
+        let markers = [];
+
+        document.getElementById('login-button').addEventListener('click', async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
                 if (!account) {
                     await msalInstance.loginPopup(loginRequest);
                 }
-                document.getElementById("fetch-data-button").disabled = false;
+                document.getElementById('fetch-data-button').disabled = false;
                 alert("Erfolgreich angemeldet!");
             } catch (error) {
                 console.error("Login-Fehler:", error);
@@ -176,143 +175,108 @@
             }
         });
 
-        // SharePoint-Daten laden
-        document.getElementById("fetch-data-button").addEventListener("click", async () => {
+        document.getElementById('fetch-data-button').addEventListener('click', async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
                 const tokenResponse = await msalInstance.acquireTokenSilent({
                     ...loginRequest,
                     account
                 });
+
                 const response = await fetch(listEndpoint, {
                     headers: {
                         Authorization: `Bearer ${tokenResponse.accessToken}`,
                         Accept: "application/json;odata=verbose"
                     }
                 });
-                if (!response.ok) throw new Error("Fehler beim Laden der Daten");
 
+                if (!response.ok) throw new Error("Fehler beim Laden der SharePoint-Daten");
                 const data = await response.json();
-                const customers = data.d.results;
 
-                customers.forEach(customer => {
-    const lng = parseFloat(customer.L_x00e4_ngengrad.replace(',', '.'));
-    const lat = parseFloat(customer.Breitengrad.replace(',', '.'));
+                data.d.results.forEach(customer => {
+                    const lng = parseFloat(customer.L_x00e4_ngengrad.replace(',', '.'));
+                    const lat = parseFloat(customer.Breitengrad.replace(',', '.'));
 
-    if (isNaN(lng) || isNaN(lat)) {
-        console.warn(`Ungültige Koordinaten: ${customer.Kundenname}, Lng=${lng}, Lat=${lat}`);
-        return;
-    }
+                    if (isNaN(lng) || isNaN(lat)) {
+                        console.warn(`Ungültige Koordinaten für ${customer.Kundenname}`);
+                        return;
+                    }
 
-    const markerElement = document.createElement('div');
-    markerElement.className = 'custom-marker';
-    markerElement.style.backgroundColor = "red";
+                    const markerElement = document.createElement('div');
+                    markerElement.className = 'custom-marker';
+                    markerElement.style.backgroundColor = "red";
 
-    const marker = new mapboxgl.Marker({ element: markerElement })
-        .setLngLat([lng, lat])
-        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${customer.Kundenname}</strong>`))
-        .addTo(map);
+                    const marker = new mapboxgl.Marker({ element: markerElement })
+                        .setLngLat([lng, lat])
+                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${customer.Kundenname}</strong>`))
+                        .addTo(map);
 
-    console.log(`Marker hinzugefügt für ${customer.Kundenname}: Lng=${lng}, Lat=${lat}`);
+                    markers.push(marker);
+                });
 
-    marker.getElement().addEventListener('click', () => {
-        if (!selectedMarkers.includes(marker)) {
-            selectedMarkers.push(marker);
-            marker.getElement().style.backgroundColor = "green";
-        } else {
-            selectedMarkers = selectedMarkers.filter(m => m !== marker);
-            marker.getElement().style.backgroundColor = "red";
-        }
-        optimizeRoute();
-    });
-
-    markers.push(marker);
-});
-
-
-                document.getElementById("route-details-button").disabled = false;
+                document.getElementById('route-details-button').disabled = false;
                 alert("Daten erfolgreich geladen!");
             } catch (error) {
                 console.error("Fehler beim Abrufen der Daten:", error);
+                alert("Fehler beim Abrufen der Daten.");
             }
         });
 
         async function optimizeRoute() {
-    if (selectedMarkers.length < 2) {
-        console.error('Mindestens zwei Marker sind erforderlich, um eine Route zu optimieren.');
-        return;
-    }
+        const coords = customers.map(c => `${c.lng},${c.lat}`).join(';');
+            const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coords}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+            const response = await fetch(url);
+            const data = await response.json();
 
-    const coordinates = selectedMarkers.map(marker => marker.getLngLat());
-    const coordsString = coordinates.map(coord => `${coord.lng},${coord.lat}`).join(";");
-
-    const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsString}?source=first&destination=last&roundtrip=false&geometries=geojson&access_token=${mapboxgl.accessToken}`;
-    console.log('API-Aufruf:', url);
-
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (!data.trips || data.trips.length === 0) {
-            console.error('Keine gültige Route erhalten:', data);
-            alert('Routing fehlgeschlagen. Prüfen Sie die Koordinaten.');
-            return;
-        }
-
-        optimizedRouteData = data.trips[0];
-        console.log('Optimierte Route:', optimizedRouteData);
-
-        if (!optimizedRouteData.geometry || optimizedRouteData.geometry.coordinates.length === 0) {
-            console.error('Ungültige Geometriedaten:', optimizedRouteData.geometry);
-            return;
-        }
-
-        const routeGeoJSON = {
-            type: "Feature",
-            geometry: optimizedRouteData.geometry
-        };
-
-        if (map.getSource("route")) {
-            map.getSource("route").setData(routeGeoJSON);
-        } else {
-            map.addSource("route", {
-                type: "geojson",
-                data: routeGeoJSON
-            });
-            map.addLayer({
-                id: "route",
-                type: "line",
-                source: "route",
-                paint: {
-                    "line-color": "#0078d4",
-                    "line-width": 5
-                }
-            });
-        }
-    } catch (error) {
-        console.error('Fehler bei der Routenoptimierung:', error);
-        alert('Fehler bei der Routenoptimierung. Prüfen Sie die Konsole.');
-    }
-}
-
-
-        // Routendetails anzeigen
-        document.getElementById("route-details-button").addEventListener("click", () => {
-            if (!optimizedRouteData) {
-                alert("Keine Route verfügbar!");
-                return;
+            if (!data.trips || data.trips.length === 0) {
+                alert('Keine Route verfügbar.');
+                return [];
             }
 
-            document.getElementById("route-details").innerHTML = `
-                <p><strong>Distanz:</strong> ${(optimizedRouteData.distance / 1000).toFixed(2)} km</p>
-                <p><strong>Dauer:</strong> ${(optimizedRouteData.duration / 60).toFixed(2)} Minuten</p>
-            `;
-            document.getElementById("route-popup").style.display = "block";
-        });
+            const trip = data.trips[0];
+            return trip.waypoints.map((wp, index) => ({
+                name: customers[index].name,
+                lat: wp.location[1],
+                lng: wp.location[0],
+                dwellTime: customers[index].dwellTime,
+                arrivalTime: null,
+                departureTime: null
+            }));
+        }
 
-        // Popup schließen
+        function displayRouteDetails(routeData) {
+            let currentTime = new Date();
+            const routeTableBody = document.getElementById('route-table-body');
+            routeTableBody.innerHTML = '';
+
+            routeData.forEach((stop, index) => {
+                const arrivalTime = new Date(currentTime);
+                currentTime.setMinutes(currentTime.getMinutes() + stop.dwellTime);
+                const departureTime = new Date(currentTime);
+
+                stop.arrivalTime = arrivalTime;
+                stop.departureTime = departureTime;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${stop.name}</td>
+                    <td>${arrivalTime.toLocaleTimeString()}</td>
+                    <td><input type="number" value="${stop.dwellTime}" onchange="updateDwellTime(${index}, this.value)"></td>
+                    <td>${departureTime.toLocaleTimeString()}</td>
+                `;
+                routeTableBody.appendChild(row);
+            });
+
+            document.getElementById('route-popup').style.display = 'block';
+        }
+
+        function updateDwellTime(index, dwellTime) {
+            routeData[index].dwellTime = parseInt(dwellTime, 10) || 0;
+            displayRouteDetails(routeData);
+        }
+
         function closeRoutePopup() {
-            document.getElementById("route-popup").style.display = "none";
+            document.getElementById('route-popup').style.display = 'none';
         }
     </script>
 </body>
