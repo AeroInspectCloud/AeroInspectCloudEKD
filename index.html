@@ -110,8 +110,9 @@
         };
 
         const loginRequest = {
-            scopes: ["https://microsoft.sharepoint.comSites.Read.All"] // API-spezifische Berechtigungen
-        };
+            scopes: ["https://microsoft.sharepoint.com/Sites.Read.All", "openid", "profile", "offline_access"]
+            };
+
 
         const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect"; // Deine SharePoint-URL
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
