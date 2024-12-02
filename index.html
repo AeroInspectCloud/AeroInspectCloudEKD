@@ -6,7 +6,9 @@
     <title>AERO INSPECT - Kundendaten</title>
     <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.css" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -21,7 +23,7 @@
             width: 100%;
         }
 
-        #login-button, #fetch-data-button {
+        #login-button, #fetch-data-button, #create-route-button {
             position: absolute;
             top: 10px;
             left: 10px;
@@ -39,9 +41,13 @@
             margin-top: 50px;
         }
 
+        #create-route-button {
+            margin-top: 100px;
+        }
+
         #data-table {
             position: absolute;
-            top: 120px;
+            top: 160px;
             left: 10px;
             background-color: white;
             border: 1px solid #ddd;
@@ -69,12 +75,18 @@
             height: 20px;
             background-color: red;
             border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .custom-marker.selected {
+            background-color: green;
         }
     </style>
 </head>
 <body>
     <button id="login-button">Login</button>
     <button id="fetch-data-button" disabled>Load Kundendaten</button>
+    <button id="create-route-button" disabled>Create Route</button>
     <div id="map"></div>
     <table id="data-table">
         <thead>
@@ -125,7 +137,15 @@
             zoom: 5,
         });
 
+        const directions = new MapboxDirections({
+            accessToken: mapboxgl.accessToken,
+            unit: 'metric',
+            profile: 'mapbox/driving'
+        });
+        map.addControl(directions, 'top-left');
+
         let markers = []; // Zum Zurücksetzen der Marker
+        let selectedMarkers = []; // Für ausgewählte Marker
 
         // Login-Button
         document.getElementById("login-button").addEventListener("click", async () => {
@@ -180,6 +200,7 @@
                 const customerData = data.d?.results || [];
                 updateMarkers(customerData);
                 populateTable(customerData);
+                document.getElementById("create-route-button").disabled = false;
             } catch (error) {
                 console.error("Fehler beim Abrufen der Daten:", error);
                 alert("Fehler beim Abrufen der Daten. Bitte versuchen Sie es erneut.");
@@ -188,9 +209,9 @@
 
         // Marker auf Karte anzeigen
         function updateMarkers(customers) {
-            // Alte Marker entfernen
             markers.forEach(marker => marker.remove());
             markers = [];
+            selectedMarkers = [];
 
             customers.forEach(customer => {
                 const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.'));
@@ -201,19 +222,41 @@
                     return;
                 }
 
-                const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                    <h3>${customer.Kundenname || "Unbekannt"}</h3>
-                    <p>ID: ${customer.Id}</p>
-                `);
+                const markerElement = document.createElement('div');
+                markerElement.className = 'custom-marker';
 
-                const marker = new mapboxgl.Marker({ color: 'red' })
+                const marker = new mapboxgl.Marker({ element: markerElement })
                     .setLngLat([lng, lat])
-                    .setPopup(popup)
                     .addTo(map);
+
+                markerElement.addEventListener('click', () => {
+                    if (markerElement.classList.contains('selected')) {
+                        markerElement.classList.remove('selected');
+                        selectedMarkers = selectedMarkers.filter(m => m.lng !== lng || m.lat !== lat);
+                    } else {
+                        markerElement.classList.add('selected');
+                        selectedMarkers.push({ lng, lat });
+                    }
+                });
 
                 markers.push(marker);
             });
         }
+
+        // Route erstellen
+        document.getElementById("create-route-button").addEventListener("click", () => {
+            if (selectedMarkers.length < 2) {
+                alert("Bitte wählen Sie mindestens zwei Marker aus, um eine Route zu erstellen.");
+                return;
+            }
+
+            directions.setOrigin([selectedMarkers[0].lng, selectedMarkers[0].lat]);
+            directions.setDestination([selectedMarkers[selectedMarkers.length - 1].lng, selectedMarkers[selectedMarkers.length - 1].lat]);
+
+            for (let i = 1; i < selectedMarkers.length - 1; i++) {
+                directions.addWaypoint(i - 1, [selectedMarkers[i].lng, selectedMarkers[i].lat]);
+            }
+        });
 
         // Tabelle füllen
         function populateTable(customers) {
