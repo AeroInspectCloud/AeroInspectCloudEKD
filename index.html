@@ -80,8 +80,7 @@
         <thead>
             <tr>
                 <th>ID</th>
-                <th>Vorname</th>
-                <th>Nachname</th>
+                <th>Kundenname</th>
                 <th>Längengrad</th>
                 <th>Breitengrad</th>
             </tr>
@@ -96,13 +95,13 @@
         // MSAL-Konfiguration
         const msalConfig = {
             auth: {
-                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // Deine App-ID
-                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Dein Tenant
-                redirectUri: "https://aeroinspectcloud.github.io" // Deine Redirect-URI
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // App-ID
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Azure Tenant
+                redirectUri: "https://aeroinspectcloud.github.io" // Redirect-URI
             },
             cache: {
                 cacheLocation: "localStorage",
-                storeAuthStateInCookie: true // Für ältere Browser
+                storeAuthStateInCookie: true
             },
             system: {
                 allowRedirectInIframe: false
@@ -125,6 +124,8 @@
             center: [10.0, 50.0],
             zoom: 5,
         });
+
+        let markers = []; // Zum Zurücksetzen der Marker
 
         // Login-Button
         document.getElementById("login-button").addEventListener("click", async () => {
@@ -177,7 +178,7 @@
 
                 const data = await response.json();
                 const customerData = data.d?.results || [];
-                displayMarkers(customerData);
+                updateMarkers(customerData);
                 populateTable(customerData);
             } catch (error) {
                 console.error("Fehler beim Abrufen der Daten:", error);
@@ -186,28 +187,31 @@
         });
 
         // Marker auf Karte anzeigen
-        function displayMarkers(customers) {
+        function updateMarkers(customers) {
+            // Alte Marker entfernen
+            markers.forEach(marker => marker.remove());
+            markers = [];
+
             customers.forEach(customer => {
                 const lng = parseFloat(customer.Längengrad?.replace(',', '.'));
                 const lat = parseFloat(customer.Breitengrad?.replace(',', '.'));
 
                 if (isNaN(lng) || isNaN(lat)) {
-                    console.warn(`Ungültige Koordinaten für ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
+                    console.warn(`Ungültige Koordinaten für ${customer.Kundenname || "Unbekannt"}`);
                     return;
                 }
 
-                const markerElement = document.createElement('div');
-                markerElement.className = 'custom-marker';
-
                 const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-                    <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
+                    <h3>${customer.Kundenname || "Unbekannt"}</h3>
                     <p>ID: ${customer.Id}</p>
                 `);
 
-                new mapboxgl.Marker({ element: markerElement })
+                const marker = new mapboxgl.Marker({ color: 'red' })
                     .setLngLat([lng, lat])
                     .setPopup(popup)
                     .addTo(map);
+
+                markers.push(marker);
             });
         }
 
@@ -221,8 +225,7 @@
                 const row = document.createElement("tr");
                 row.innerHTML = `
                     <td>${customer.Id}</td>
-                    <td>${customer.Vorname || "-"}</td>
-                    <td>${customer.Nachname || "-"}</td>
+                    <td>${customer.Kundenname || "-"}</td>
                     <td>${customer.Längengrad || "-"}</td>
                     <td>${customer.Breitengrad || "-"}</td>
                 `;
