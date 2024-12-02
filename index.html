@@ -64,13 +64,12 @@
             color: white;
         }
 
-        /* Regel für die Marker */
-    .custom-marker {
-        width: 20px;
-        height: 20px;
-        background-color: red; /* Testweise sichtbar machen */
-        border-radius: 50%;
-    }
+        .custom-marker {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+        }
     </style>
 </head>
 <body>
@@ -83,6 +82,8 @@
                 <th>ID</th>
                 <th>Vorname</th>
                 <th>Nachname</th>
+                <th>Längengrad</th>
+                <th>Breitengrad</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -92,28 +93,27 @@
         // Mapbox Access Token
         mapboxgl.accessToken = 'pk.eyJ1IjoiYWVyb2luc3BlY3QiLCJhIjoiY20zZDI5ZW1rMjV2dzJqc2U2cHZ0Y2I5ciJ9.ocXZqAz8Uyz0nkPD6ILZ5A';
 
-        // MSAL Konfiguration
-           const msalConfig = {
+        // MSAL-Konfiguration
+        const msalConfig = {
             auth: {
-            clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
-            authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
-            redirectUri: "https://aeroinspectcloud.github.io", // Passe deine Redirect-URI an
-                  },
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // Deine Client-ID
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Dein Tenant
+                redirectUri: "https://aeroinspectcloud.github.io" // Deine Redirect-URI
+            },
             system: {
-            allowRedirectInIframe: false, // iFrame-Redirects deaktivieren
-                },
-              cache: {
-            cacheLocation: "localStorage", // Token im localStorage speichern
-            storeAuthStateInCookie: true, // Für ältere Browser
+                allowRedirectInIframe: false // iFrame-Redirects deaktivieren
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: true // Für ältere Browser
             }
-            };
-
-
-        const loginRequest = {
-            scopes: ["https://aeroinspect.sharepoint.com/.default"]
         };
 
-        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const loginRequest = {
+            scopes: ["https://microsoft.sharepoint.comSites.Read.All"] // API-spezifische Berechtigungen
+        };
+
+        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect"; // Deine SharePoint-URL
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
@@ -125,8 +125,6 @@
             center: [10.0, 50.0],
             zoom: 5,
         });
-
-        const customerMarkers = [];
 
         // Login-Button
         document.getElementById("login-button").addEventListener("click", async () => {
@@ -143,7 +141,7 @@
             }
         });
 
-        // Kundendaten abrufen
+        // Daten abrufen
         document.getElementById("fetch-data-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
@@ -152,13 +150,13 @@
                 try {
                     const tokenResponse = await msalInstance.acquireTokenSilent({
                         ...loginRequest,
-                        account,
+                        account
                     });
                     token = tokenResponse.accessToken;
                 } catch (error) {
                     if (error instanceof msal.InteractionRequiredAuthError) {
                         const tokenResponse = await msalInstance.acquireTokenPopup({
-                            ...loginRequest,
+                            ...loginRequest
                         });
                         token = tokenResponse.accessToken;
                     } else {
@@ -169,8 +167,8 @@
                 const response = await fetch(listEndpoint, {
                     headers: {
                         Authorization: `Bearer ${token}`,
-                        Accept: "application/json;odata=verbose",
-                    },
+                        Accept: "application/json;odata=verbose"
+                    }
                 });
 
                 if (!response.ok) {
@@ -178,11 +176,7 @@
                 }
 
                 const data = await response.json();
-                const customerData = data.d.results;
-
-                // Hier wird die Ausgabe der API-Daten in der Konsole protokolliert
-                console.log("API-Daten:", customerData);
-                
+                const customerData = data.d?.results || [];
                 displayMarkers(customerData);
                 populateTable(customerData);
             } catch (error) {
@@ -191,63 +185,52 @@
             }
         });
 
+        // Marker auf Karte anzeigen
         function displayMarkers(customers) {
-        customers.forEach(customer => {
-        console.log(`Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || "Unbekannt"}`);
-        console.log(`Längengrad: ${customer.L_x00e4_ngengrad}, Breitengrad: ${customer.Breitengrad}`);
+            customers.forEach(customer => {
+                const lng = parseFloat(customer.Längengrad?.replace(',', '.'));
+                const lat = parseFloat(customer.Breitengrad?.replace(',', '.'));
 
-        // Koordinaten bereinigen und validieren
-        const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.').trim());
-        const lat = parseFloat(customer.Breitengrad?.replace(',', '.').trim());
+                if (isNaN(lng) || isNaN(lat)) {
+                    console.warn(`Ungültige Koordinaten für ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
+                    return;
+                }
 
-        if (isNaN(lng) || isNaN(lat) || lng < -180 || lng > 180 || lat < -90 || lat > 90) {
-            console.warn(`Ungültige Koordinaten für Kunde: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
-            return; // Überspringe ungültige Werte
+                const markerElement = document.createElement('div');
+                markerElement.className = 'custom-marker';
+
+                const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                    <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
+                    <p>ID: ${customer.Id}</p>
+                `);
+
+                new mapboxgl.Marker({ element: markerElement })
+                    .setLngLat([lng, lat])
+                    .setPopup(popup)
+                    .addTo(map);
+            });
         }
 
-        // Marker erstellen
-        const markerElement = document.createElement('div');
-        markerElement.className = 'custom-marker';
-
-        // Popup hinzufügen
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-            <h3>${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}</h3>
-            <p>ID: ${customer.Id}</p>
-        `);
-
-        // Marker zur Karte hinzufügen
-        new mapboxgl.Marker({ element: markerElement })
-            .setLngLat([lng, lat])
-            .setPopup(popup)
-            .addTo(map);
-
-        console.log(`Marker erstellt für: ${customer.Vorname || "Unbekannt"} ${customer.Nachname || ""}`);
-    });
-}
-
-
-
-
+        // Tabelle füllen
         function populateTable(customers) {
-    const table = document.getElementById("data-table");
-    const tbody = table.querySelector("tbody");
-    tbody.innerHTML = "";
+            const table = document.getElementById("data-table");
+            const tbody = table.querySelector("tbody");
+            tbody.innerHTML = "";
 
-    customers.forEach(customer => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${customer.Id}</td>
-            <td>${customer.Vorname || "-"}</td>
-            <td>${customer.Nachname || "-"}</td>
-            <td>${customer.L_x00e4_ngengrad || "-"}</td>
-            <td>${customer.Breitengrad || "-"}</td>
-        `;
-        tbody.appendChild(row);
-    });
+            customers.forEach(customer => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${customer.Id}</td>
+                    <td>${customer.Vorname || "-"}</td>
+                    <td>${customer.Nachname || "-"}</td>
+                    <td>${customer.Längengrad || "-"}</td>
+                    <td>${customer.Breitengrad || "-"}</td>
+                `;
+                tbody.appendChild(row);
+            });
 
-    table.style.display = "block";
-}
-
+            table.style.display = "block";
+        }
     </script>
 </body>
 </html>
