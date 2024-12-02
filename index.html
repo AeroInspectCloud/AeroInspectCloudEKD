@@ -70,6 +70,38 @@
         .popup-content strong {
             font-weight: 700;
         }
+
+        .route-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 20;
+        }
+
+        .route-popup h4 {
+            margin: 0 0 10px;
+            font-size: 18px;
+            color: #0078d4;
+        }
+
+        .route-popup button {
+            background-color: #0078d4;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .route-popup button:hover {
+            background-color: #005fa3;
+        }
     </style>
 </head>
 <body>
@@ -77,11 +109,15 @@
         <h3>Route planen</h3>
         <button id="login-button">Login</button>
         <button id="fetch-data-button" disabled>Daten laden</button>
-        <input type="text" id="start-location" placeholder="Startort eingeben" disabled>
-        <input type="time" id="start-time" placeholder="Ankunftszeit auswählen" disabled>
-        <button id="optimize-route-button" disabled>Route optimieren</button>
+        <button id="route-details-button" disabled>Routendetails</button>
     </div>
     <div id="map"></div>
+
+    <div class="route-popup" id="route-popup">
+        <h4>Routendetails</h4>
+        <div id="route-details"></div>
+        <button onclick="closeRoutePopup()">Schließen</button>
+    </div>
 
     <script>
         // Mapbox Access Token
@@ -90,16 +126,9 @@
         // MSAL-Konfiguration
         const msalConfig = {
             auth: {
-                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // App-ID
-                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Azure Tenant
-                redirectUri: "https://aeroinspectcloud.github.io" // Redirect-URI
-            },
-            cache: {
-                cacheLocation: "localStorage",
-                storeAuthStateInCookie: true
-            },
-            system: {
-                allowRedirectInIframe: false
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
+                redirectUri: "https://aeroinspectcloud.github.io"
             }
         };
 
@@ -112,7 +141,6 @@
         const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
-        // Map initialisieren
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
@@ -122,6 +150,7 @@
 
         let markers = [];
         let selectedMarkers = [];
+        let optimizedRouteData = null;
 
         // Login
         document.getElementById("login-button").addEventListener("click", async () => {
@@ -174,14 +203,13 @@
                         } else {
                             selectedMarkers = selectedMarkers.filter(m => m !== marker);
                         }
-                        document.getElementById("optimize-route-button").disabled = selectedMarkers.length < 2;
+                        optimizeRoute();
                     });
 
                     markers.push(marker);
                 });
 
-                document.getElementById("start-location").disabled = false;
-                document.getElementById("start-time").disabled = false;
+                document.getElementById("route-details-button").disabled = false;
                 alert("Daten erfolgreich geladen!");
             } catch (error) {
                 console.error("Fehler beim Abrufen der Daten:", error);
@@ -189,14 +217,8 @@
         });
 
         // Route optimieren
-        document.getElementById("optimize-route-button").addEventListener("click", async () => {
-            const startLocation = document.getElementById("start-location").value;
-            const startTime = document.getElementById("start-time").value;
-
-            if (!startLocation || !startTime) {
-                alert("Startort und Zeit erforderlich");
-                return;
-            }
+        async function optimizeRoute() {
+            if (selectedMarkers.length < 2) return;
 
             const coordinates = selectedMarkers.map(marker => marker.getLngLat());
             const coordsString = coordinates.map(coord => `${coord.lng},${coord.lat}`).join(";");
@@ -206,10 +228,10 @@
             const data = await response.json();
 
             if (data.trips.length > 0) {
-                const route = data.trips[0];
+                optimizedRouteData = data.trips[0];
                 const routeGeoJSON = {
                     type: "Feature",
-                    geometry: route.geometry
+                    geometry: optimizedRouteData.geometry
                 };
 
                 if (map.getSource("route")) {
@@ -229,10 +251,27 @@
                         }
                     });
                 }
-
-                alert(`Route optimiert: ${route.distance / 1000} km, ${route.duration / 60} Minuten.`);
             }
+        }
+
+        // Routendetails anzeigen
+        document.getElementById("route-details-button").addEventListener("click", () => {
+            if (!optimizedRouteData) {
+                alert("Keine Route verfügbar!");
+                return;
+            }
+
+            document.getElementById("route-details").innerHTML = `
+                <p><strong>Distanz:</strong> ${(optimizedRouteData.distance / 1000).toFixed(2)} km</p>
+                <p><strong>Dauer:</strong> ${(optimizedRouteData.duration / 60).toFixed(2)} Minuten</p>
+            `;
+            document.getElementById("route-popup").style.display = "block";
         });
+
+        // Popup schließen
+        function closeRoutePopup() {
+            document.getElementById("route-popup").style.display = "none";
+        }
     </script>
 </body>
 </html>
