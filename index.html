@@ -138,7 +138,7 @@
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const siteUrl = "<https://aeroinspect.sharepoint.com/sites/AeroInspect>";
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
         const map = new mapboxgl.Map({
@@ -192,7 +192,11 @@
 
                     if (isNaN(lng) || isNaN(lat)) return;
 
-                    const marker = new mapboxgl.Marker()
+                    const markerElement = document.createElement('div');
+                    markerElement.className = 'custom-marker';
+                    markerElement.style.backgroundColor = "red"; // Standardfarbe Rot
+
+                    const marker = new mapboxgl.Marker({ element: markerElement })
                         .setLngLat([lng, lat])
                         .setPopup(new mapboxgl.Popup().setHTML(`<strong>${customer.Kundenname}</strong>`))
                         .addTo(map);
@@ -200,10 +204,12 @@
                     marker.getElement().addEventListener('click', () => {
                         if (!selectedMarkers.includes(marker)) {
                             selectedMarkers.push(marker);
+                            marker.getElement().style.backgroundColor = "green"; // Farbe ändern
                         } else {
                             selectedMarkers = selectedMarkers.filter(m => m !== marker);
+                            marker.getElement().style.backgroundColor = "red"; // Farbe zurücksetzen
                         }
-                        optimizeRoute();
+                        optimizeRoute(); // Route optimieren
                     });
 
                     markers.push(marker);
