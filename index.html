@@ -81,7 +81,7 @@
             <tr>
                 <th>ID</th>
                 <th>Kundenname</th>
-                <th>Längengrad</th>
+                <th>Langengrad</th>
                 <th>Breitengrad</th>
             </tr>
         </thead>
@@ -193,7 +193,7 @@
             markers = [];
 
             customers.forEach(customer => {
-                const lng = parseFloat(customer.Längengrad?.replace(',', '.'));
+                const lng = parseFloat(customer.Langengrad?.replace(',', '.'));
                 const lat = parseFloat(customer.Breitengrad?.replace(',', '.'));
 
                 if (isNaN(lng) || isNaN(lat)) {
@@ -226,7 +226,7 @@
                 row.innerHTML = `
                     <td>${customer.Id}</td>
                     <td>${customer.Kundenname || "-"}</td>
-                    <td>${customer.Längengrad || "-"}</td>
+                    <td>${customer.Langengrad || "-"}</td>
                     <td>${customer.Breitengrad || "-"}</td>
                 `;
                 tbody.appendChild(row);
