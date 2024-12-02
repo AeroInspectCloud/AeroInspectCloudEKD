@@ -97,7 +97,7 @@
         };
 
         const loginRequest = {
-            scopes: ["User.Read", "Sites.Read.All"]
+            scopes: ["https://microsoft.sharepoint.com/Sites.Read.All"]
         };
 
         const msalInstance = new msal.PublicClientApplication(msalConfig);
