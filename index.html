@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AERO INSPECT - Routenplanung</title>
+    <title>AERO INSPECT - Kundendaten</title>
     <script src="https://alcdn.msauth.net/browser/2.37.0/js/msal-browser.min.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.1/mapbox-gl-directions.css" rel="stylesheet">
     <style>
         body {
             margin: 0;
-            font-family: 'Roboto', sans-serif;
+            font-family: Arial, sans-serif;
             background-color: #f4f4f4;
         }
 
@@ -22,111 +23,82 @@
             width: 100%;
         }
 
+        #login-button, #fetch-data-button, #create-route-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            background-color: #0078d4;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        #fetch-data-button {
+            margin-top: 50px;
+        }
+
+        #create-route-button {
+            margin-top: 100px;
+        }
+
+        #data-table {
+            position: absolute;
+            top: 160px;
+            left: 10px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 10;
+        }
+
+        #data-table th, #data-table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #data-table th {
+            background-color: #0078d4;
+            color: white;
+        }
+
         .custom-marker {
             width: 20px;
             height: 20px;
             background-color: red;
             border-radius: 50%;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-        }
-
-
-        .control-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            z-index: 10;
-            width: 350px;
-        }
-
-        .control-panel h3 {
-            margin: 0 0 10px;
-            font-weight: 700;
-            color: #0078d4;
-        }
-
-        .control-panel input,
-        .control-panel button {
-            width: calc(100% - 20px);
-            margin: 10px 0;
-            padding: 10px;
-            font-size: 14px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-
-        .control-panel button {
-            background-color: #0078d4;
-            color: white;
-            border: none;
             cursor: pointer;
         }
 
-        .control-panel button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        .popup-content {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .popup-content strong {
-            font-weight: 700;
-        }
-
-        .route-popup {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            display: none;
-            z-index: 20;
-        }
-
-        .route-popup h4 {
-            margin: 0 0 10px;
-            font-size: 18px;
-            color: #0078d4;
-        }
-
-        .route-popup button {
-            background-color: #0078d4;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .route-popup button:hover {
-            background-color: #005fa3;
+        .custom-marker.selected {
+            background-color: green;
         }
     </style>
 </head>
 <body>
-    <div class="control-panel">
-        <h3>Route planen</h3>
-        <button id="login-button">Login</button>
-        <button id="fetch-data-button" disabled>Daten laden</button>
-        <button id="route-details-button" disabled>Routendetails</button>
-    </div>
+    <button id="login-button">Login</button>
+    <button id="fetch-data-button" disabled>Load Kundendaten</button>
+    <button id="create-route-button" disabled>Create Route</button>
     <div id="map"></div>
-
-    <div class="route-popup" id="route-popup">
-        <h4>Routendetails</h4>
-        <div id="route-details"></div>
-        <button onclick="closeRoutePopup()">Schließen</button>
-    </div>
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Kundenname</th>
+                <th>Langengrad</th>
+                <th>Breitengrad</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
     <script>
         // Mapbox Access Token
@@ -135,9 +107,16 @@
         // MSAL-Konfiguration
         const msalConfig = {
             auth: {
-                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0",
-                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f",
-                redirectUri: "https://aeroinspectcloud.github.io"
+                clientId: "73aa213c-f324-456a-bb09-dc0b6e9faac0", // App-ID
+                authority: "https://login.microsoftonline.com/4a97cea8-8cc4-4d4c-8edc-3d59b870450f", // Azure Tenant
+                redirectUri: "https://aeroinspectcloud.github.io" // Redirect-URI
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: true
+            },
+            system: {
+                allowRedirectInIframe: false
             }
         };
 
@@ -145,23 +124,30 @@
             scopes: ["https://microsoft.sharepoint.com/Sites.Read.All"]
         };
 
-        const msalInstance = new msal.PublicClientApplication(msalConfig);
-
-        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect";
+        const siteUrl = "https://aeroinspect.sharepoint.com/sites/AeroInspect"; // Deine SharePoint-URL
         const listEndpoint = `${siteUrl}/_api/web/lists(guid'ADA209A0-A9EB-4446-8371-B63FEC42FE8D')/items`;
 
+        const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+        // Mapbox-Initialisierung
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11',
+            style: 'mapbox://styles/mapbox/light-v10',
             center: [10.0, 50.0],
-            zoom: 5
+            zoom: 5,
         });
 
-        let markers = [];
-        let selectedMarkers = [];
-        let optimizedRouteData = null;
+        const directions = new MapboxDirections({
+            accessToken: mapboxgl.accessToken,
+            unit: 'metric',
+            profile: 'mapbox/driving'
+        });
+        map.addControl(directions, 'top-left');
 
-        // Login
+        let markers = []; // Zum Zurücksetzen der Marker
+        let selectedMarkers = []; // Für ausgewählte Marker
+
+        // Login-Button
         document.getElementById("login-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
@@ -172,147 +158,124 @@
                 alert("Erfolgreich angemeldet!");
             } catch (error) {
                 console.error("Login-Fehler:", error);
-                alert("Login fehlgeschlagen.");
+                alert("Login fehlgeschlagen. Bitte versuchen Sie es erneut.");
             }
         });
 
-        // SharePoint-Daten laden
+        // Kundendaten abrufen
         document.getElementById("fetch-data-button").addEventListener("click", async () => {
             try {
                 const account = msalInstance.getAllAccounts()[0];
-                const tokenResponse = await msalInstance.acquireTokenSilent({
-                    ...loginRequest,
-                    account
-                });
+                let token;
+
+                try {
+                    const tokenResponse = await msalInstance.acquireTokenSilent({
+                        ...loginRequest,
+                        account
+                    });
+                    token = tokenResponse.accessToken;
+                } catch (error) {
+                    if (error instanceof msal.InteractionRequiredAuthError) {
+                        const tokenResponse = await msalInstance.acquireTokenPopup({
+                            ...loginRequest
+                        });
+                        token = tokenResponse.accessToken;
+                    } else {
+                        throw error;
+                    }
+                }
+
                 const response = await fetch(listEndpoint, {
                     headers: {
-                        Authorization: `Bearer ${tokenResponse.accessToken}`,
+                        Authorization: `Bearer ${token}`,
                         Accept: "application/json;odata=verbose"
                     }
                 });
-                if (!response.ok) throw new Error("Fehler beim Laden der Daten");
+
+                if (!response.ok) {
+                    throw new Error(`Fehler beim Abrufen der Daten: ${response.statusText}`);
+                }
 
                 const data = await response.json();
-                const customers = data.d.results;
-
-                customers.forEach(customer => {
-    const lng = parseFloat(customer.L_x00e4_ngengrad.replace(',', '.'));
-    const lat = parseFloat(customer.Breitengrad.replace(',', '.'));
-
-    if (isNaN(lng) || isNaN(lat)) {
-        console.warn(`Ungültige Koordinaten: ${customer.Kundenname}, Lng=${lng}, Lat=${lat}`);
-        return;
-    }
-
-    const markerElement = document.createElement('div');
-    markerElement.className = 'custom-marker';
-    markerElement.style.backgroundColor = "red";
-
-    const marker = new mapboxgl.Marker({ element: markerElement })
-        .setLngLat([lng, lat])
-        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${customer.Kundenname}</strong>`))
-        .addTo(map);
-
-    console.log(`Marker hinzugefügt für ${customer.Kundenname}: Lng=${lng}, Lat=${lat}`);
-
-    marker.getElement().addEventListener('click', () => {
-        if (!selectedMarkers.includes(marker)) {
-            selectedMarkers.push(marker);
-            marker.getElement().style.backgroundColor = "green";
-        } else {
-            selectedMarkers = selectedMarkers.filter(m => m !== marker);
-            marker.getElement().style.backgroundColor = "red";
-        }
-        optimizeRoute();
-    });
-
-    markers.push(marker);
-});
-
-
-                document.getElementById("route-details-button").disabled = false;
-                alert("Daten erfolgreich geladen!");
+                const customerData = data.d?.results || [];
+                updateMarkers(customerData);
+                populateTable(customerData);
+                document.getElementById("create-route-button").disabled = false;
             } catch (error) {
                 console.error("Fehler beim Abrufen der Daten:", error);
+                alert("Fehler beim Abrufen der Daten. Bitte versuchen Sie es erneut.");
             }
         });
 
-        async function optimizeRoute() {
-    if (selectedMarkers.length < 2) {
-        console.error('Mindestens zwei Marker sind erforderlich, um eine Route zu optimieren.');
-        return;
-    }
+        // Marker auf Karte anzeigen
+        function updateMarkers(customers) {
+            markers.forEach(marker => marker.remove());
+            markers = [];
+            selectedMarkers = [];
 
-    const coordinates = selectedMarkers.map(marker => marker.getLngLat());
-    const coordsString = coordinates.map(coord => `${coord.lng},${coord.lat}`).join(";");
+            customers.forEach(customer => {
+                const lng = parseFloat(customer.L_x00e4_ngengrad?.replace(',', '.'));
+                const lat = parseFloat(customer.Breitengrad?.replace(',', '.'));
 
-    const url = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordsString}?source=first&destination=last&roundtrip=false&geometries=geojson&access_token=${mapboxgl.accessToken}`;
-    console.log('API-Aufruf:', url);
-
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (!data.trips || data.trips.length === 0) {
-            console.error('Keine gültige Route erhalten:', data);
-            alert('Routing fehlgeschlagen. Prüfen Sie die Koordinaten.');
-            return;
-        }
-
-        optimizedRouteData = data.trips[0];
-        console.log('Optimierte Route:', optimizedRouteData);
-
-        if (!optimizedRouteData.geometry || optimizedRouteData.geometry.coordinates.length === 0) {
-            console.error('Ungültige Geometriedaten:', optimizedRouteData.geometry);
-            return;
-        }
-
-        const routeGeoJSON = {
-            type: "Feature",
-            geometry: optimizedRouteData.geometry
-        };
-
-        if (map.getSource("route")) {
-            map.getSource("route").setData(routeGeoJSON);
-        } else {
-            map.addSource("route", {
-                type: "geojson",
-                data: routeGeoJSON
-            });
-            map.addLayer({
-                id: "route",
-                type: "line",
-                source: "route",
-                paint: {
-                    "line-color": "#0078d4",
-                    "line-width": 5
+                if (isNaN(lng) || isNaN(lat)) {
+                    console.warn(`Ungültige Koordinaten für ${customer.Kundenname || "Unbekannt"}`);
+                    return;
                 }
+
+                const markerElement = document.createElement('div');
+                markerElement.className = 'custom-marker';
+
+                const marker = new mapboxgl.Marker({ element: markerElement })
+                    .setLngLat([lng, lat])
+                    .addTo(map);
+
+                markerElement.addEventListener('click', () => {
+                    if (markerElement.classList.contains('selected')) {
+                        markerElement.classList.remove('selected');
+                        selectedMarkers = selectedMarkers.filter(m => m.lng !== lng || m.lat !== lat);
+                    } else {
+                        markerElement.classList.add('selected');
+                        selectedMarkers.push({ lng, lat });
+                    }
+                });
+
+                markers.push(marker);
             });
         }
-    } catch (error) {
-        console.error('Fehler bei der Routenoptimierung:', error);
-        alert('Fehler bei der Routenoptimierung. Prüfen Sie die Konsole.');
-    }
-}
 
-
-        // Routendetails anzeigen
-        document.getElementById("route-details-button").addEventListener("click", () => {
-            if (!optimizedRouteData) {
-                alert("Keine Route verfügbar!");
+        // Route erstellen
+        document.getElementById("create-route-button").addEventListener("click", () => {
+            if (selectedMarkers.length < 2) {
+                alert("Bitte wählen Sie mindestens zwei Marker aus, um eine Route zu erstellen.");
                 return;
             }
 
-            document.getElementById("route-details").innerHTML = `
-                <p><strong>Distanz:</strong> ${(optimizedRouteData.distance / 1000).toFixed(2)} km</p>
-                <p><strong>Dauer:</strong> ${(optimizedRouteData.duration / 60).toFixed(2)} Minuten</p>
-            `;
-            document.getElementById("route-popup").style.display = "block";
+            directions.setOrigin([selectedMarkers[0].lng, selectedMarkers[0].lat]);
+            directions.setDestination([selectedMarkers[selectedMarkers.length - 1].lng, selectedMarkers[selectedMarkers.length - 1].lat]);
+
+            for (let i = 1; i < selectedMarkers.length - 1; i++) {
+                directions.addWaypoint(i - 1, [selectedMarkers[i].lng, selectedMarkers[i].lat]);
+            }
         });
 
-        // Popup schließen
-        function closeRoutePopup() {
-            document.getElementById("route-popup").style.display = "none";
+        // Tabelle füllen
+        function populateTable(customers) {
+            const table = document.getElementById("data-table");
+            const tbody = table.querySelector("tbody");
+            tbody.innerHTML = "";
+
+            customers.forEach(customer => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${customer.Id}</td>
+                    <td>${customer.Kundenname || "-"}</td>
+                    <td>${customer.L_x00e4_ngengrad || "-"}</td>
+                    <td>${customer.Breitengrad || "-"}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            table.style.display = "block";
         }
     </script>
 </body>
